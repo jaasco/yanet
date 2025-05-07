@@ -1,0 +1,32 @@
+{
+    "modules": {
+      "lp0": {
+        "type": "logicalPort",
+        "physicalPort": "kni0",
+        "macAddress": "00:11:22:33:44:55",
+        "nextModule": "sniFilter"
+      },
+      "sniFilter": {
+        "type": "sniFilter",
+        "rules": [
+          {
+            "ip": "10.0.0.1",
+            "sni": "good.example.com",
+            "nextModule": "accept"
+          },
+          {
+            "ip": "10.0.0.1",
+            "sni": "*",
+            "nextModule": "drop"
+          }
+        ]
+      },
+      "accept": {
+        "type": "accept"
+      },
+      "drop": {
+        "type": "drop"
+      }
+    }
+  }
+  

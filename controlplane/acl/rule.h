@@ -1043,6 +1043,7 @@ struct rule_t
 	int64_t ruleno;
 	mutable std::string text;
 	mutable std::string comment;
+	mutable std::string sni;
 	std::set<std::string> via;
 	bool log;
 
@@ -1114,6 +1115,7 @@ public:
 		log = rulep->log;
 		filter = new filter_t(rulep);
 		ruleno = rulep->ruleno;
+		sni = rulep->sni;
 		ids.emplace_back(rulep->ruleid);
 		for (const auto& [name, how] : rulep->ifaces)
 		{

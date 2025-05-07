@@ -772,4 +772,12 @@ add deny ip from any to any keep-state
 	EXPECT_EQ(firewall.get_rules_size(), keep_state_rules + implicit_check_state_rules);
 }
 
+TEST(Parser, 067_SniOption)
+{
+	const auto rules = R"IPFW(
+add allow ip from any to any sni example.com
+)IPFW";
+	EXPECT_TRUE(parse_rules(rules));
+}
+
 } // namespace

@@ -376,6 +376,7 @@ struct rule_t
 	std::map<iface_direction_t, std::set<std::string>> iface_tables; // via table(NAME)
 	std::string comment; // rule comment
 	std::string text; // original rule text
+	std::string sni; // SNI names to match in ClientHello
 };
 
 class fw_config_t;
@@ -471,6 +472,7 @@ public:
 		m_curr_src = value;
 	}
 	void add_rule_ports(const rule_t::ports_arg_t&);
+	void add_rule_sni(const std::string& name);
 	void set_rule_opcode(const rule_t::opcode_t op)
 	{
 		m_curr_opcode = op;

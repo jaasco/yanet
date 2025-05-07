@@ -1,0 +1,10 @@
+{
+    "sni_rules": [
+      {
+        "sni": "bad.example.com",
+        "source_ip": "10.0.0.1",
+        "action": "drop"
+      }
+    ]
+  }
+  

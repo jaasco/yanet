@@ -131,7 +131,7 @@
 		SRCPRJID DSTPRJID RED ALL LMAX DSTIP6 SRCIP6 TCPSETMSS
 		NAT64CLAT NAT64LSN NAT64STL NPTV6 SRCADDR QM DSTADDR
 		SRCPORT DSTPORT SRCIP DSTIP EQUAL COMMA MINUS EOL M4LQ M4RQ DUMP
-		STATETIMEOUT HITCOUNT
+		STATETIMEOUT HITCOUNT SNI
 
 // QUEUE could be an argument to *MASK
 %precedence	QUEUE
@@ -1228,8 +1228,13 @@ optiontoken:
 	|
 	PROTO prototoken
 	|
-	viatoken viatarget
+    SNI FQDN
+    {
+        cfg.add_rule_sni($2);
+    }
 	|
+	viatoken viatarget
+    |
 	IN
 	{
 		cfg.set_rule_opcode(rule_t::opcode_t::DIRECTION);

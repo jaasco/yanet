@@ -1,0 +1,10 @@
+name: SNI+IP filter blocks bad domain
+description: Drop TLS ClientHello with SNI bad.example.com from IP 10.0.0.1
+
+steps:
+  - send_packet:
+      iface: port0
+      pcap: send.pcap
+
+  - expect_no_packet:
+      iface: port1

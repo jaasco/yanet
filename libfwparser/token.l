@@ -176,6 +176,7 @@ any			return ipfw::fw_parser_t::make_ANY(*ploc);
 in			return ipfw::fw_parser_t::make_IN(*ploc);
 out			return ipfw::fw_parser_t::make_OUT(*ploc);
 via			return ipfw::fw_parser_t::make_VIA(*ploc);
+sni     return ipfw::fw_parser_t::make_SNI(*ploc);
 xmit			return ipfw::fw_parser_t::make_XMIT(*ploc);
 recv			return ipfw::fw_parser_t::make_RECV(*ploc);
 or			return ipfw::fw_parser_t::make_OR(*ploc);

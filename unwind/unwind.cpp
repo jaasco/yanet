@@ -130,7 +130,11 @@ int main(int argc, char* argv[])
 
 	fw.firewall = std::make_shared<ipfw::fw_config_t>(2);
 	fw.firewall->schedule_file(fname);
-	fw.firewall->parse();
+	auto ret = fw.firewall->parse();
+	if (!ret)
+	{
+		std::cout << "Parse error:" << std::endl;
+	}
 	fw.firewall->validate();
 
 	std::map<std::string, controlplane::base::acl_t> acls{{"acl0", std::move(fw)}};

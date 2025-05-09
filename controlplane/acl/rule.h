@@ -840,6 +840,52 @@ inline ref_t<filter_proto_t> and_op(const ref_t<filter_proto_t>& a, const ref_t<
 	                          a.filter->prm3 & b.filter->prm3);
 }
 
+struct filter_string_t : filter_base_t
+{
+	std::set<std::string> values;
+
+	filter_string_t() = default;
+
+	explicit filter_string_t(const std::string& value)
+	{
+		values.insert(value);
+	}
+
+	explicit filter_string_t(std::set<std::string> _values) :
+	        values(std::move(_values)) {}
+
+	bool is_none() const override
+	{
+		return values.empty();
+	}
+
+	std::string to_string() const override
+	{
+		std::string result;
+		for (const auto& val : values)
+		{
+			if (!result.empty())
+				result += ",";
+			result += val;
+		}
+		return result;
+	}
+
+	bool operator==(const filter_string_t& other) const
+	{
+		return values == other.values;
+	}
+};
+
+inline ref_t<filter_string_t> and_op(const ref_t<filter_string_t>& a, const ref_t<filter_string_t>& b)
+{
+	std::set<std::string> intersection;
+	std::set_intersection(a->values.begin(), a->values.end(), b->values.begin(), b->values.end(), std::inserter(intersection, intersection.begin()));
+	return new filter_string_t(std::move(intersection));
+}
+
+
+
 struct filter_t : filter_base_t
 {
 	ref_t<filter_id_t> acl_id;
@@ -849,6 +895,7 @@ struct filter_t : filter_base_t
 	ref_t<filter_proto_t> proto;
 	ref_t<filter_id_t> dir;
 	ref_t<filter_bool_t> recordstate;
+	ref_t<filter_string_t> sni;
 
 	filter_t(const ref_t<filter_id_t>& _acl_id,
 	         const ref_t<filter_network_t>& _src,
@@ -856,14 +903,16 @@ struct filter_t : filter_base_t
 	         const ref_t<filter_prm8_t>& _flags,
 	         const ref_t<filter_proto_t>& _proto,
 	         const ref_t<filter_id_t>& _dir,
-	         const ref_t<filter_bool_t>& recordstate) :
+	         const ref_t<filter_bool_t>& recordstate,
+	         const ref_t<filter_string_t>& _sni) :
 	        acl_id(_acl_id),
 	        src(_src),
 	        dst(_dst),
 	        flags(_flags),
 	        proto(_proto),
 	        dir(_dir),
-	        recordstate(recordstate)
+	        recordstate(recordstate),
+	        sni(_sni)
 	{}
 
 	filter_t(ipfw::rule_ptr_t rulep)
@@ -921,11 +970,15 @@ struct filter_t : filter_base_t
 		{
 			recordstate = new filter_bool_t(true);
 		}
+		if (!rulep->sni.empty())
+		{
+			sni = new filter_string_t(rulep->sni);
+		}
 	}
 
 	[[nodiscard]] bool is_none() const override
 	{
-		return acl_id.is_none() || src.is_none() || dst.is_none() || proto.is_none() || dir.is_none() || recordstate.is_none();
+		return acl_id.is_none() || src.is_none() || dst.is_none() || proto.is_none() || dir.is_none() || recordstate.is_none() || sni.is_none();
 	}
 
 	[[nodiscard]] std::string to_string() const override
@@ -956,10 +1009,13 @@ struct filter_t : filter_base_t
 		{
 			ret += " recordstate";
 		}
-
 		if (acl_id)
 		{
 			ret += " via " + acl_id->to_string();
+		}
+		if (sni)
+		{
+			ret += " sni " + sni->to_string();
 		}
 
 		return ret;
@@ -967,7 +1023,7 @@ struct filter_t : filter_base_t
 
 	bool operator==(const filter_t& o) const
 	{
-		return src == o.src && dst == o.dst && flags == o.flags && proto == o.proto && dir == o.dir && recordstate == o.recordstate;
+		return src == o.src && dst == o.dst && flags == o.flags && proto == o.proto && dir == o.dir && recordstate == o.recordstate && sni == o.sni;
 	}
 };
 
@@ -1022,7 +1078,8 @@ inline ref_t<filter_t> and_op(const ref_t<filter_t>& a, const ref_t<filter_t>& b
 	                    a.filter->flags & b.filter->flags,
 	                    a.filter->proto & b.filter->proto,
 	                    a.filter->dir & b.filter->dir,
-	                    a.filter->recordstate & b.filter->recordstate);
+	                    a.filter->recordstate & b.filter->recordstate,
+	                    a.filter->sni & b.filter->sni);
 }
 
 const int64_t DISPATCHER = -1;
@@ -1352,9 +1409,21 @@ struct hash<acl::filter_t>
 	size_t operator()(const acl::filter_t& f) const noexcept
 	{
 		size_t h = 0;
-		hash_combine(h, f.src, f.dst, f.flags, f.proto, f.dir, f.recordstate);
+		hash_combine(h, f.src, f.dst, f.flags, f.proto, f.dir, f.recordstate, f.sni);
 
 		return h;
+	}
+};
+
+template <>
+struct hash<acl::filter_string_t>
+{
+	std::size_t operator()(const acl::filter_string_t& f) const
+	{
+		std::size_t seed = 0;
+		for (const auto& s : f.values)
+			seed ^= std::hash<std::string>{}(s) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		return seed;
 	}
 };
 

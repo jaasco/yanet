@@ -695,4 +695,21 @@ add hitcount SomeRandomString123 ip from any to any
 	});
 }
 
+TEST_F(ACLWithUnwind, 022_SNIFieldBasic)
+{
+	unwind_and_compile_acl(R"IPFW(
+:BEGIN
+add allow ip from any to any sni "example.com"
+add deny ip from any to any
+)IPFW");
+
+	ASSERT_EQ(unwind_result.size(), 2);
+
+	// Проверим что первое правило содержит SNI
+	EXPECT_THAT(stringify(unwind_result[0]), ::testing::HasSubstr("example.com"));
+
+	// Проверим что второе — не содержит
+	EXPECT_THAT(stringify(unwind_result[1]), ::testing::Not(::testing::HasSubstr("example.com")));
+}
+
 } // namespace

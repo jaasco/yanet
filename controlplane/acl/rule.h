@@ -1090,7 +1090,7 @@ const int64_t DISPATCHER = -1;
 // sense.
 //
 // Additionally, we might have another variant for representing rules that are suitable for execution in the dataplane.
-using rule_action = std::variant<int64_t, common::globalBase::tFlow, common::acl::dump_t, common::acl::check_state_t, common::acl::state_timeout_t, common::acl::hit_count_t>;
+using rule_action = std::variant<int64_t, common::globalBase::tFlow, common::acl::dump_t, common::acl::check_state_t, common::acl::state_timeout_t, common::acl::hit_count_t, common::acl::check_sni_t>;
 
 struct rule_t
 {
@@ -1164,6 +1164,9 @@ public:
 				break;
 			case ipfw::rule_action_t::HITCOUNT:
 				action = common::acl::hit_count_t(std::get<std::string>(rulep->action_arg));
+				break;
+			case ipfw::rule_action_t::CHECKSNI:
+				action = common::acl::check_sni_t(std::get<std::string>(rulep->action_arg));
 				break;
 			default:
 				YANET_LOG_WARNING("unexpected rule action in rule '%s'\n", rulep->text.data());

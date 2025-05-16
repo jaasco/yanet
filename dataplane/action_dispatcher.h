@@ -153,6 +153,15 @@ struct ActionDispatcher
 
 		worker->populate_hitcount_map(action.id, mbuf);
 	}
+
+	static void execute(const common::CheckSniAction& action, const Flow& flow, const ActionDispatcherArgs& args)
+	{
+		auto worker = args.worker;
+		auto mbuf = args.mbuf;
+
+		if (worker->sni_filter_matches(action.sni, mbuf))
+			return;
+	}
 };
 
 } // namespace dataplane

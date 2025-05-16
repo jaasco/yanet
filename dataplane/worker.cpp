@@ -32,6 +32,8 @@
 #include "prepare.h"
 #include "worker.h"
 
+#include "tls/tls_sni.h"
+
 //
 
 cWorker::cWorker(cDataPlane* dataPlane) :
@@ -1162,21 +1164,30 @@ inline void cWorker::logicalPort_ingress_flow(rte_mbuf* mbuf,
 {
 	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
 	metadata->flow = flow;
+	YANET_LOG_DEBUG("logicalPort_ingress_flow: packet received: net_type=0x%04x trans_type=0x%04x flags=0x%02x port=%u\n",
+	                metadata->network_headerType,
+	                metadata->transport_headerType,
+	                metadata->network_flags,
+	                metadata->fromPortId);
 
 	if (flow.type == common::globalBase::eFlowType::acl_ingress)
 	{
+		YANET_LOG_DEBUG("logicalPort_ingress_flow: eFlowType acl_ingress_entry");
 		acl_ingress_entry(mbuf);
 	}
 	else if (flow.type == common::globalBase::eFlowType::route)
 	{
+		YANET_LOG_DEBUG("logicalPort_ingress_flow: eFlowType route");
 		route_entry(mbuf);
 	}
 	else if (flow.type == common::globalBase::eFlowType::route_tunnel || flow.type == common::globalBase::eFlowType::route_tunnel_ipip)
 	{
+		YANET_LOG_DEBUG("logicalPort_ingress_flow: eFlowType route_tunnel");
 		route_tunnel_entry(mbuf);
 	}
 	else if (flow.type == common::globalBase::eFlowType::controlPlane)
 	{
+		YANET_LOG_DEBUG("logicalPort_ingress_flow: eFlowType controlPlane");
 		controlPlane(mbuf);
 	}
 	else
@@ -1317,17 +1328,25 @@ inline void cWorker::after_early_decap_entry(rte_mbuf* mbuf)
 inline void cWorker::acl_ingress_entry(rte_mbuf* mbuf)
 {
 	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+	YANET_LOG_DEBUG("acl_ingress_entry: packet received: net_type=0x%04x trans_type=0x%04x flags=0x%02x port=%u\n",
+	                metadata->network_headerType,
+	                metadata->transport_headerType,
+	                metadata->network_flags,
+	                metadata->fromPortId);
 
 	if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))
 	{
+		YANET_LOG_DEBUG("acl_ingress_entry: acl_ingress_stack4 insert mbuf");
 		acl_ingress_stack4.insert(mbuf);
 	}
 	else if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6))
 	{
+		YANET_LOG_DEBUG("acl_ingress_entry: acl_ingress_stack6 insert mbuf");
 		acl_ingress_stack6.insert(mbuf);
 	}
 	else
 	{
+		YANET_LOG_DEBUG("acl_ingress_entry: mbuf goes to controlPlane");
 		controlPlane(mbuf);
 	}
 }
@@ -1337,11 +1356,13 @@ using ActionsEgress = dataplane::ActionDispatcher<dataplane::FlowDirection::Egre
 
 inline void cWorker::acl_ingress_handle4()
 {
+	YANET_LOG_DEBUG("acl_ingress_handle4\n");
 	const auto& base = bases[localBaseId & 1];
 	const auto& acl = base.globalBase->acl;
 
 	if (unlikely(acl_ingress_stack4.mbufsCount == 0))
 	{
+		YANET_LOG_DEBUG("acl_ingress_stack4.mbufsCount == 0, return\n");
 		return;
 	}
 
@@ -1376,6 +1397,7 @@ inline void cWorker::acl_ingress_handle4()
 	     mbuf_i < acl_ingress_stack4.mbufsCount;
 	     mbuf_i++)
 	{
+		YANET_LOG_DEBUG("acl_ingress_stack4.mbufsCount loop\n");
 		rte_mbuf* mbuf = acl_ingress_stack4.mbufs[mbuf_i];
 		dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
 
@@ -1392,8 +1414,10 @@ inline void cWorker::acl_ingress_handle4()
 
 		if (!(metadata->network_flags & YANET_NETWORK_FLAG_NOT_FIRST_FRAGMENT))
 		{
+			YANET_LOG_DEBUG("network_flags");
 			if (metadata->transport_headerType == IPPROTO_TCP)
 			{
+				YANET_LOG_DEBUG("transport_headerType == IPPROTO_TCP\n");
 				rte_tcp_hdr* tcp_header = rte_pktmbuf_mtod_offset(mbuf, rte_tcp_hdr*, metadata->transport_headerOffset);
 
 				transport_key.group1 = transport_layer.tcp.source.array[rte_be_to_cpu_16(tcp_header->src_port)];
@@ -1480,6 +1504,41 @@ inline void cWorker::acl_ingress_handle4()
 	}
 
 	acl_ingress_stack4.clear();
+}
+
+inline bool cWorker::sni_filter_matches(const std::string& sni, rte_mbuf* mbuf)
+{
+	if (sni.empty())
+		return false;
+
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+
+	const char* payload = rte_pktmbuf_mtod_offset(mbuf, const char*, metadata->transport_headerOffset + sizeof(rte_tcp_hdr));
+	const uint16_t payload_len = mbuf->pkt_len - (metadata->transport_headerOffset + sizeof(rte_tcp_hdr));
+	if (payload_len <= 0)
+		return false;
+
+	auto maybe_sni = parse_tls_sni(payload, payload_len);
+	if (!maybe_sni)
+	{
+		YANET_LOG_DEBUG("No SNI found.\n");
+		return false;
+	}
+	if (*maybe_sni != sni)
+	{
+		YANET_LOG_DEBUG("Sni mismatch. Expected: %s, Got: %.*s\n",
+		                sni.c_str(),
+		                static_cast<int>(maybe_sni->size()),
+		                maybe_sni->data());
+		return false;
+	}
+
+	YANET_LOG_DEBUG("Sni match. Drop it. Expected: %s, Got: %.*s\n",
+	                sni.c_str(),
+	                static_cast<int>(maybe_sni->size()),
+	                maybe_sni->data());
+
+	return true;
 }
 
 inline void cWorker::acl_ingress_handle6()

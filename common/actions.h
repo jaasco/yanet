@@ -127,6 +127,22 @@ struct hit_count_t
 	std::string id;
 };
 
+struct check_sni_t
+{
+	check_sni_t() :
+	        sni("") {}
+
+	check_sni_t(std::string sni_) :
+	        sni(std::move(sni_)) {}
+
+	bool operator==(const check_sni_t& o) const { return sni == o.sni; }
+	bool operator<(const check_sni_t& o) const { return sni < o.sni; }
+
+	SERIALIZABLE(sni);
+
+	std::string sni;
+};
+
 } // namespace acl
 
 // TODO: When rewriting the current ACL library into LibFilter, we could consider using inheritance.
@@ -146,10 +162,10 @@ struct DumpAction final
 	uint64_t dump_id;
 
 	DumpAction(const acl::dump_t& dump_action) :
-	        dump_id(dump_action.dump_id){};
+	        dump_id(dump_action.dump_id) {};
 
 	DumpAction() :
-	        dump_id(0){};
+	        dump_id(0) {};
 
 	[[nodiscard]] bool terminating() const { return false; }
 
@@ -178,7 +194,7 @@ struct FlowAction final
 	std::optional<uint32_t> timeout;
 
 	FlowAction(const globalBase::tFlow& flow) :
-	        flow(flow){};
+	        flow(flow) {};
 
 	FlowAction(globalBase::tFlow&& flow) :
 	        flow(std::move(flow)) {}
@@ -210,19 +226,19 @@ struct CheckStateAction final
 {
 	static constexpr size_t MAX_COUNT = 1;
 
-	CheckStateAction(const acl::check_state_t&){};
+	CheckStateAction(const acl::check_state_t&) {};
 	CheckStateAction() = default;
 
 	[[nodiscard]] bool terminating() const { return false; }
 
 	void pop(stream_in_t& stream)
 	{
-		stream.pop(reinterpret_cast<uint8_t(&)[sizeof(*this)]>(*this));
+		stream.pop(reinterpret_cast<uint8_t (&)[sizeof(*this)]>(*this));
 	}
 
 	void push(stream_out_t& stream) const
 	{
-		stream.push(reinterpret_cast<const uint8_t(&)[sizeof(*this)]>(*this));
+		stream.push(reinterpret_cast<const uint8_t (&)[sizeof(*this)]>(*this));
 	}
 
 	[[nodiscard]] std::string to_string() const
@@ -243,10 +259,10 @@ struct StateTimeoutAction final
 	uint32_t timeout;
 
 	StateTimeoutAction(const acl::state_timeout_t& timeout_action) :
-	        timeout(timeout_action.timeout){};
+	        timeout(timeout_action.timeout) {};
 
 	StateTimeoutAction() :
-	        timeout(0){};
+	        timeout(0) {};
 
 	[[nodiscard]] bool terminating() const { return false; }
 
@@ -272,10 +288,10 @@ struct HitCountAction final
 	std::string id;
 
 	HitCountAction(const acl::hit_count_t& hitcount_action) :
-	        id(std::move(hitcount_action.id)){};
+	        id(std::move(hitcount_action.id)) {};
 
 	HitCountAction() :
-	        id(""){};
+	        id("") {};
 
 	[[nodiscard]] bool terminating() const { return false; }
 
@@ -297,7 +313,34 @@ struct HitCountAction final
 	}
 };
 
-using RawAction = std::variant<FlowAction, DumpAction, CheckStateAction, StateTimeoutAction, HitCountAction>;
+/**
+ * @brief Represents the action that check SNI inside TLS 1.3 HelloClient
+ */
+struct CheckSniAction final
+{
+	static constexpr size_t MAX_COUNT = 1;
+
+	std::string sni;
+
+	CheckSniAction(const acl::check_sni_t& sni_action) :
+	        sni(sni_action.sni) {};
+
+	CheckSniAction() :
+	        sni("") {};
+
+	[[nodiscard]] bool terminating() const { return false; }
+
+	SERIALIZABLE(sni);
+
+	[[nodiscard]] std::string to_string() const
+	{
+		std::ostringstream oss;
+		oss << "CheckSniAction(sni=" << sni << ")";
+		return oss.str();
+	}
+};
+
+using RawAction = std::variant<FlowAction, DumpAction, CheckStateAction, StateTimeoutAction, HitCountAction, CheckSniAction>;
 
 /**
  * @brief Represents a generic action.
@@ -353,7 +396,7 @@ struct IntermediateActions
 	template<typename T>
 	struct is_first_matters
 	{
-		static constexpr bool value = std::is_same_v<T, CheckStateAction>;
+		static constexpr bool value = std::is_same_v<T, CheckStateAction> || std::is_same_v<T, CheckSniAction>;
 	};
 
 	/**

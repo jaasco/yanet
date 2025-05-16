@@ -225,6 +225,7 @@ protected:
 
 	inline void populate_hitcount_map(const std::string& id, rte_mbuf* mbuf);
 	inline bool is_expired_ttl(rte_mbuf* mbuf);
+	inline bool sni_filter_matches(const std::string& sni, rte_mbuf* mbuf);
 
 protected:
 	/// @todo: move to slow_worker_t

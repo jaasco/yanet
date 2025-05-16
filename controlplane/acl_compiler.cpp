@@ -296,6 +296,10 @@ void compiler_t::collect(const std::vector<rule_t>& unwind_rules)
 			{
 				rule.value_filter_id = value.collect_initial_rule(*hit_count);
 			}
+			else if (auto check_sni = std::get_if<common::acl::check_sni_t>(&unwind_rule.action))
+			{
+				rule.value_filter_id = value.collect_initial_rule(*check_sni);
+			}
 		}
 
 		/// terminating

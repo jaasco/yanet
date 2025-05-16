@@ -1,4 +1,3 @@
 :BEGIN
-add allow ip from any to any
-
+add allow ip from any to any sni example.com
 

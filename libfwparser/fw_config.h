@@ -172,6 +172,7 @@ enum class rule_action_t
 	DUMP,
 	STATETIMEOUT,
 	HITCOUNT,
+	CHECKSNI
 };
 
 enum class rule_action_modifier_t

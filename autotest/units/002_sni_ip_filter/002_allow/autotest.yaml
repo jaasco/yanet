@@ -1,1 +1,7 @@
-description: Allow good.example.com SNI traffic from 10.0.0.1
+steps:
+- ipv4Update: "0.0.0.0/0 -> 200.0.0.1"
+- ipv6Update: "::/0 -> fe80::1"
+- sendPackets:
+  - port: kni0
+    send: send.pcap
+    expect: expect.pcap

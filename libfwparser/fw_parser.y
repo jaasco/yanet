@@ -59,8 +59,6 @@
   #include "libfwparser/fw_lexer.h"
   #include "libfwparser/fw_parser.h"
 
-  // replace yylex() function call
-  #define yylex cfg.Lex
 
   #ifdef YYDEBUG
   #define WARN_UNSUPPORTED(msg)	do {	\
@@ -70,6 +68,11 @@
   #else
   #define WARN_UNSUPPORTED(msg)
   #endif
+}
+
+%code {
+  // replace yylex() function call
+  #define yylex cfg.Lex
 }
 
 %start commands
@@ -102,7 +105,7 @@
 // these tokens don't need any type, we need to know only fact 
 // that token was matched.
 
-%token          ADD ADDRULE ACTUAL STALE ALLOW DENY DENY_IN T_REJECT
+%token          ADD ADDRULE ACTUAL STALE ALLOW DENY DENY_IN DENY_SNI T_REJECT
 		UNREACH UNREACH6 SKIPTO DIVERT TEE COUNT SETDSCP
 		SETFIB DSCP CALL RETURN TAG UNTAG TAGGED ALTQ PIPE QUEUE
 		REASS CONFIG BW WEIGHT BUCKETS MASK SCHEDMASK NOERROR PLR
@@ -499,6 +502,11 @@ action:
 	DENY
 	{
 		cfg.set_rule_action(rule_action_t::DENY);
+	}
+	|
+	DENY_SNI
+	{
+		cfg.set_rule_action(rule_action_t::DENY_SNI);
 	}
 	|
 	DUMP dump_tag

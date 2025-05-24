@@ -101,6 +101,7 @@ subdir('libfwparser')
 subdir('dataplane')
 subdir('controlplane')
 subdir('cli')
+subdir('parser')
 
 if target_option.contains('release')
     subdir('logger')

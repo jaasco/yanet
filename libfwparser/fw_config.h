@@ -147,6 +147,7 @@ enum class rule_action_t
 	CHECKSTATE,
 	COUNT,
 	DENY,
+	DENY_SNI,
 	DIVERT,
 	FORWARD,
 	NAT,
@@ -171,8 +172,7 @@ enum class rule_action_t
 	DSTPRJID,
 	DUMP,
 	STATETIMEOUT,
-	HITCOUNT,
-	CHECKSNI
+	HITCOUNT
 };
 
 enum class rule_action_modifier_t

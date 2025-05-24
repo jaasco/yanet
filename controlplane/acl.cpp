@@ -48,7 +48,6 @@ struct dispatcher_rules_t
 			ref_t<filter_network_t> dst;
 			ref_t<filter_prm8_t> flags;
 			ref_t<filter_proto_t> proto;
-			ref_t<filter_string_t> sni;
 
 			if (item.network)
 			{
@@ -152,18 +151,8 @@ struct dispatcher_rules_t
 					proto = new filter_proto_t(new filter_prm8_t(other.protocolTypes), nullptr, nullptr, nullptr);
 				}
 			}
-			// if (item.application)
-			// {
-			// 	const auto& app = *item.application;
 
-			// 	if (std::holds_alternative<controlplane::base::acl_rule_application_tls_t>(app))
-			// 	{
-			// 		const auto& tls = std::get<controlplane::base::acl_rule_application_tls_t>(app);
-			// 		sni = new filter_string_t(tls.server_names);
-			// 	}
-			// }
-
-			rules.emplace_back(new filter_t(nullptr, src, dst, flags, proto, dir_in, nullptr, nullptr), *item.flow, ids_t(), false);
+			rules.emplace_back(new filter_t(nullptr, src, dst, flags, proto, dir_in, nullptr), *item.flow, ids_t(), false);
 		}
 
 		{
@@ -171,14 +160,14 @@ struct dispatcher_rules_t
 			// this rule is needed for correct determination of single from networks
 			common::globalBase::tFlow flow;
 			flow.type = common::globalBase::eFlowType::drop;
-			rules.emplace_back(new filter_t(nullptr, nullptr, nullptr, nullptr, nullptr, dir_in, nullptr, nullptr), flow, ids_t(), false);
+			rules.emplace_back(new filter_t(nullptr, nullptr, nullptr, nullptr, nullptr, dir_in, nullptr), flow, ids_t(), false);
 		}
 		{
 			// allow all output packets by default
 			ref_t<filter_id_t> dir_out = new filter_id_t(1);
 			common::globalBase::tFlow flow;
 			flow.type = common::globalBase::eFlowType::logicalPort_egress;
-			rules.emplace_back(new filter_t(nullptr, nullptr, nullptr, nullptr, nullptr, dir_out, nullptr, nullptr), flow, ids_t(), false);
+			rules.emplace_back(new filter_t(nullptr, nullptr, nullptr, nullptr, nullptr, dir_out, nullptr), flow, ids_t(), false);
 		}
 	}
 };
@@ -330,6 +319,7 @@ struct firewall_rules_t
 					case ipfw::rule_action_t::ALLOW:
 					case ipfw::rule_action_t::DUMP:
 					case ipfw::rule_action_t::DENY:
+					case ipfw::rule_action_t::DENY_SNI:
 					case ipfw::rule_action_t::CHECKSTATE:
 					case ipfw::rule_action_t::STATETIMEOUT:
 					case ipfw::rule_action_t::HITCOUNT:
@@ -627,7 +617,7 @@ unwind_result unwind(const std::map<std::string, controlplane::base::acl_t>& acl
 		}
 
 		ref_t<filter_proto_t> transport = new filter_proto_t(filter_protocol, filter_transport_source, filter_transport_destination, filter_transport_flags);
-		ref_t<filter_t> filter = new filter_t(acl_id, filter_network_source, filter_network_destination, filter_fragment, transport, filter_dir, nullptr, nullptr);
+		ref_t<filter_t> filter = new filter_t(acl_id, filter_network_source, filter_network_destination, filter_fragment, transport, filter_dir, nullptr);
 
 		result_t unwind_result;
 		auto rules = unwind_used_rules(acls, ifaces, filter, unwind_result);
@@ -870,7 +860,7 @@ std::vector<rule_t> unwind_used_rules(const std::map<std::string, controlplane::
 			ref_t<filter_id_t> acl_id = new filter_id_t(aclId);
 			ref_t<filter_id_t> direction(new filter_id_t(dir ? 0 : 1));
 
-			ref_t<filter_t> start_filter = new filter_t(acl_id, nullptr, nullptr, nullptr, nullptr, direction, nullptr, nullptr);
+			ref_t<filter_t> start_filter = new filter_t(acl_id, nullptr, nullptr, nullptr, nullptr, direction, nullptr);
 			start_filter = start_filter & filter;
 
 			auto rules = unwind_rules(fw, dispatcher, start_filter, iface);
@@ -1100,7 +1090,7 @@ std::set<uint32_t> lookup(const std::map<std::string, controlplane::base::acl_t>
 		}
 
 		ref_t<filter_proto_t> transport = new filter_proto_t(filter_protocol, filter_transport_source, filter_transport_destination, filter_transport_flags);
-		ref_t<filter_t> filter = new filter_t(acl_id, filter_network_source, filter_network_destination, filter_fragment, transport, filter_dir, nullptr, nullptr);
+		ref_t<filter_t> filter = new filter_t(acl_id, filter_network_source, filter_network_destination, filter_fragment, transport, filter_dir, nullptr);
 
 		result_t unwind_result;
 		auto rules_used = unwind_used_rules(acls, ifaces, filter, unwind_result);

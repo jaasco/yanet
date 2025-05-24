@@ -1,0 +1,3 @@
+:BEGIN
+add drop ip from any to any sni bad.example.com
+

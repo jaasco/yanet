@@ -109,6 +109,7 @@ allow|accept|pass	return ipfw::fw_parser_t::make_ALLOW(*ploc);
 permit			return ipfw::fw_parser_t::make_ALLOW(*ploc);
 deny_in			return ipfw::fw_parser_t::make_DENY_IN(*ploc);
 deny|drop		return ipfw::fw_parser_t::make_DENY(*ploc);
+deny_sni|deny-sni return ipfw::fw_parser_t::make_DENY_SNI(*ploc);
 dump			return ipfw::fw_parser_t::make_DUMP(*ploc);
 state-timeout	return ipfw::fw_parser_t::make_STATETIMEOUT(*ploc);
 hitcount		return ipfw::fw_parser_t::make_HITCOUNT(*ploc);

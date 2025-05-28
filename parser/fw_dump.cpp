@@ -275,10 +275,6 @@ void fw_dump_t::dump_rule(rule_ptr_t rulep)
 		}
 		std::cerr << std::endl;
 	}
-	if (!rulep->sni.empty())
-	{
-		std::cerr << "# sni  = " << rulep->sni << std::endl;
-	}
 }
 
 void fw_dump_t::dump_rules()

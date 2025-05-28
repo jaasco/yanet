@@ -2030,6 +2030,7 @@ enum class eFlowType : uint8_t
 	slowWorker_nat64stateless_egress_icmp,
 	slowWorker_nat64stateless_egress_fragmentation,
 	slowWorker_nat64stateless_egress_farm,
+	slowWorker_tls_sni_drop,
 	slowWorker_dregress,
 	slowWorker_kni,
 	slowWorker_dump,
@@ -2099,6 +2100,8 @@ inline const char* eFlowType_toString(eFlowType t)
 			return "logicalPort_egress";
 		case eFlowType::slowWorker_nat64stateless_ingress_icmp:
 			return "slowWorker_nat64stateless_ingress_icmp";
+		case eFlowType::slowWorker_tls_sni_drop:
+			return "slowWorker_tls_sni_drop";
 		case eFlowType::slowWorker_nat64stateless_ingress_fragmentation:
 			return "slowWorker_nat64stateless_ingress_fragmentation";
 		case eFlowType::slowWorker_nat64stateless_egress_icmp:

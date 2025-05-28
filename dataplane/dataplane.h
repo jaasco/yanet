@@ -251,6 +251,9 @@ protected:
 	common::idp::get_shm_info::response dumps_meta;
 	std::map<std::string, uint64_t> tag_to_id;
 
+	common::idp::updateGlobalBase::acl_tls_sni::request tls_sni_meta;
+	char tls_sni_strings[YANET_CONFIG_TLS_SNI_COUNT][YANET_CONFIG_TLS_SNI_STRING_LEN]{};
+
 	common::idp::get_shm_tsc_info::response tscs_meta;
 
 	common::idp::hitcount_dump::response hitcount_map_;

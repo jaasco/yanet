@@ -151,6 +151,7 @@ enum class requestType : uint32_t
 	acl_transport_table,
 	acl_total_table,
 	acl_values,
+	acl_tls_sni,
 	dregress_prefix_update,
 	dregress_prefix_remove,
 	dregress_prefix_clear,
@@ -375,6 +376,11 @@ namespace acl_values
 using request = std::vector<common::Actions>;
 }
 
+namespace acl_tls_sni
+{
+using request = std::vector<std::string>;
+}
+
 namespace dump_tags_ids
 {
 using request = std::vector<std::string>;
@@ -539,7 +545,7 @@ using requestVariant = std::variant<std::tuple<>,
                                     acl_transport_table::request,
                                     acl_total_table::request,
                                     acl_values::request,
-                                    dump_tags_ids::request,
+                                    dump_tags_ids::request, /// + acl_tls_sni
                                     lpm::request,
                                     route_value_update::request,
                                     route_tunnel_value_update::request,

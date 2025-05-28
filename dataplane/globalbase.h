@@ -181,6 +181,7 @@ protected:
 	eResult acl_total_table(const common::idp::updateGlobalBase::acl_total_table::request& request);
 	eResult acl_values(const common::idp::updateGlobalBase::acl_values::request& request);
 	eResult dump_tags_ids(const common::idp::updateGlobalBase::dump_tags_ids::request& request);
+	eResult acl_tls_sni(const common::idp::updateGlobalBase::acl_tls_sni::request& request);
 	eResult dregress_prefix_update(const common::idp::updateGlobalBase::dregress_prefix_update::request& request);
 	eResult dregress_prefix_remove(const common::idp::updateGlobalBase::dregress_prefix_remove::request& request);
 	eResult dregress_prefix_clear();

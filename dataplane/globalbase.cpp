@@ -422,6 +422,10 @@ eResult generation::update(const common::idp::updateGlobalBase::request& request
 		{
 			result = dump_tags_ids(std::get<common::idp::updateGlobalBase::dump_tags_ids::request>(data));
 		}
+		else if (type == common::idp::updateGlobalBase::requestType::acl_tls_sni)
+		{
+			result = acl_tls_sni(std::get<common::idp::updateGlobalBase::acl_tls_sni::request>(data));
+		}
 		else if (type == common::idp::updateGlobalBase::requestType::dregress_prefix_update)
 		{
 			result = dregress_prefix_update(std::get<common::idp::updateGlobalBase::dregress_prefix_update::request>(data));
@@ -2420,6 +2424,19 @@ eResult generation::dump_tags_ids(const common::idp::updateGlobalBase::dump_tags
 		{
 			dump_id_to_tag[i + 1] = it->second;
 		}
+	}
+
+	return eResult::success;
+}
+
+eResult generation::acl_tls_sni(const common::idp::updateGlobalBase::acl_tls_sni::request& request)
+{
+	memset(dataPlane->tls_sni_strings, 0, sizeof(dataPlane->tls_sni_strings));
+	dataPlane->tls_sni_meta = request;
+
+	for (size_t i = 0; i < request.size() && i < YANET_CONFIG_TLS_SNI_COUNT; ++i)
+	{
+		strncpy(dataPlane->tls_sni_strings[i], request[i].c_str(), YANET_CONFIG_TLS_SNI_STRING_LEN - 1);
 	}
 
 	return eResult::success;

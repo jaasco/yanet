@@ -134,7 +134,7 @@
 		SRCPRJID DSTPRJID RED ALL LMAX DSTIP6 SRCIP6 TCPSETMSS
 		NAT64CLAT NAT64LSN NAT64STL NPTV6 SRCADDR QM DSTADDR
 		SRCPORT DSTPORT SRCIP DSTIP EQUAL COMMA MINUS EOL M4LQ M4RQ DUMP
-		STATETIMEOUT HITCOUNT SNI
+		STATETIMEOUT HITCOUNT
 
 // QUEUE could be an argument to *MASK
 %precedence	QUEUE
@@ -504,9 +504,10 @@ action:
 		cfg.set_rule_action(rule_action_t::DENY);
 	}
 	|
-	DENY_SNI
+	DENY_SNI FQDN
 	{
 		cfg.set_rule_action(rule_action_t::DENY_SNI);
+		cfg.set_rule_action_arg($2);
 	}
 	|
 	DUMP dump_tag
@@ -1235,11 +1236,6 @@ optiontoken:
 	}
 	|
 	PROTO prototoken
-	|
-    SNI FQDN
-    {
-        cfg.add_rule_sni($2);
-    }
 	|
 	viatoken viatarget
     |

@@ -1817,6 +1817,21 @@ inline void cWorker::acl_ingress_flow(rte_mbuf* mbuf,
 	{
 		controlPlane(mbuf);
 	}
+	else if (flow.type == common::globalBase::eFlowType::slowWorker_tls_sni_drop) ///< @todo
+	{
+		uint32_t sni_index = flow.data.atomic;
+
+		if (sni_index >= YANET_CONFIG_TLS_SNI_COUNT)
+			return;
+
+		const char* expected_sni = dataPlane->tls_sni_strings[sni_index];
+
+		if (!sni_filter_matches(expected_sni, mbuf))
+			return;
+
+		stats->acl_ingress_dropPackets++; ///< @todo
+		drop(mbuf);
+	}
 	else
 	{
 		stats->acl_ingress_dropPackets++; ///< @todo

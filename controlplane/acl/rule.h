@@ -1032,7 +1032,7 @@ const int64_t DISPATCHER = -1;
 // sense.
 //
 // Additionally, we might have another variant for representing rules that are suitable for execution in the dataplane.
-using rule_action = std::variant<int64_t, common::globalBase::tFlow, common::acl::dump_t, common::acl::check_state_t, common::acl::state_timeout_t, common::acl::hit_count_t, common::acl::check_sni_t>;
+using rule_action = std::variant<int64_t, common::globalBase::tFlow, common::acl::dump_t, common::acl::check_state_t, common::acl::state_timeout_t, common::acl::hit_count_t, common::acl::deny_sni_t>;
 
 struct rule_t
 {
@@ -1042,7 +1042,6 @@ struct rule_t
 	int64_t ruleno;
 	mutable std::string text;
 	mutable std::string comment;
-	mutable std::string sni;
 	std::set<std::string> via;
 	bool log;
 
@@ -1108,7 +1107,7 @@ public:
 				action = common::acl::hit_count_t(std::get<std::string>(rulep->action_arg));
 				break;
 			case ipfw::rule_action_t::DENY_SNI:
-				action = common::acl::check_sni_t(rulep->sni);
+				action = common::acl::deny_sni_t(std::get<std::string>(rulep->action_arg));
 				break;
 			default:
 				YANET_LOG_WARNING("unexpected rule action in rule '%s'\n", rulep->text.data());
@@ -1117,7 +1116,6 @@ public:
 		log = rulep->log;
 		filter = new filter_t(rulep);
 		ruleno = rulep->ruleno;
-		sni = rulep->sni;
 		ids.emplace_back(rulep->ruleid);
 		for (const auto& [name, how] : rulep->ifaces)
 		{
@@ -1254,7 +1252,8 @@ public:
 
 	bool is_term() const
 	{
-		return std::holds_alternative<common::globalBase::tFlow>(action);
+		return std::holds_alternative<common::globalBase::tFlow>(action) ||
+		       std::holds_alternative<common::acl::deny_sni_t>(action);
 	}
 
 	bool is_skipto() const

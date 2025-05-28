@@ -681,11 +681,6 @@ void fw_config_t::add_rule_addr_me6(void)
 		m_curr_rule->dst_me6 = true;
 }
 
-void fw_config_t::add_rule_sni(const std::string& name)
-{
-    m_curr_rule->sni = name;
-}
-
 void fw_config_t::set_rule_action(rule_action_t a)
 {
 	FW_CONF_DEBUG(" ");

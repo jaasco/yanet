@@ -38,6 +38,7 @@ struct result_t
 
 	std::vector<std::string> dump_id_to_tag;
 	std::map<std::string, uint32_t> tag_to_dump_id;
+	std::vector<std::string> tls_sni_list;
 };
 
 iface_map_t ifaceMapping(std::map<std::string, controlplane::base::logical_port_t> logicalPorts,

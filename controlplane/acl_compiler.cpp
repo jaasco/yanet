@@ -104,6 +104,7 @@ void compiler_t::compile(const std::vector<rule_t>& unwind_rules,
 	}
 
 	result.acl_values = std::move(value.vector);
+	result.tls_sni_list = std::move(tls_sni_list);
 
 	YANET_LOG_INFO("acl::compile: done\n");
 }
@@ -296,9 +297,23 @@ void compiler_t::collect(const std::vector<rule_t>& unwind_rules)
 			{
 				rule.value_filter_id = value.collect_initial_rule(*hit_count);
 			}
-			else if (auto check_sni = std::get_if<common::acl::check_sni_t>(&unwind_rule.action))
+			else if (auto deny_sni = std::get_if<common::acl::deny_sni_t>(&unwind_rule.action))
 			{
-				rule.value_filter_id = value.collect_initial_rule(*check_sni);
+				auto it = std::find(tls_sni_list.begin(), tls_sni_list.end(), deny_sni->sni);
+				uint32_t sni_index;
+				if (it == tls_sni_list.end())
+				{
+					tls_sni_list.push_back(deny_sni->sni);
+					sni_index = tls_sni_list.size() - 1;
+				}
+				else
+				{
+					sni_index = std::distance(tls_sni_list.begin(), it);
+				}
+
+				common::globalBase::tFlow flow(common::globalBase::eFlowType::slowWorker_tls_sni_drop);
+				flow.data.atomic = sni_index;
+				rule.value_filter_id = value.collect_initial_rule(flow);
 			}
 		}
 

@@ -3,5 +3,5 @@ steps:
 - ipv6Update: "::/0 -> fe80::1"
 - sendPackets:
   - port: kni0
-    send: send.pcap
-    expect: expect.pcap
+    send: send-002.pcap
+    expect: recv-002.pcap

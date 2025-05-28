@@ -153,45 +153,6 @@ struct ActionDispatcher
 
 		worker->populate_hitcount_map(action.id, mbuf);
 	}
-
-	static void execute(const common::CheckSniAction& action, const Flow& flow, const ActionDispatcherArgs& args)
-	{
-		auto worker = args.worker;
-		auto mbuf = args.mbuf;
-
-		worker->aclCounters[action.flow.counter_id]++;
-
-		// TODO: move slow_worker
-		if (!worker->sni_filter_matches(action.sni, mbuf))
-			return;
-
-		if constexpr (Direction == FlowDirection::Egress)
-		{
-			acl_id = args.meta->aclId;
-		}
-		else
-		{
-			acl_id = args.meta->flow.data.aclId;
-		}
-
-		if (action.flow.flags & (uint8_t)FlowFlags::log)
-		{
-			worker->acl_log(mbuf, action.flow, acl_id);
-		}
-		if (action.flow.flags & (uint8_t)FlowFlags::recordstate)
-		{
-			worker->acl_create_state(mbuf, acl_id, action.flow, action.timeout);
-		}
-
-		if constexpr (Direction == FlowDirection::Egress)
-		{
-			worker->acl_egress_flow(mbuf, action.flow);
-		}
-		else
-		{
-			worker->acl_ingress_flow(mbuf, action.flow);
-		}
-	}
 };
 
 } // namespace dataplane

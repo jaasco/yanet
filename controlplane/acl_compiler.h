@@ -89,6 +89,7 @@ public:
 	tAclGroupId destination_group_id;
 
 	std::vector<uint32_t> used_rules;
+	std::vector<std::string> tls_sni_list;
 };
 
 }

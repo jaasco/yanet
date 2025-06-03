@@ -439,6 +439,8 @@ public:
 	std::map<std::string, dregress::config_t> dregresses;
 	std::map<std::string, balancer::config_t> balancers;
 	std::map<std::string, tun64::config_t> tunnels;
+	std::map<std::string, tls_inspect::config_t> tls_inspectors;
+	std::map<std::string, unsigned int> tls_inspector_name_to_id;
 	std::vector<std::vector<uint32_t>> ids_map;
 	std::map<uint32_t, std::vector<acl::rule_info_t>> rules;
 	std::vector<acl::rule_info_t> dispatcher;

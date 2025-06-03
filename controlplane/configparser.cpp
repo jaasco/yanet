@@ -82,6 +82,10 @@ controlplane::base_t config_parser_t::loadConfig(const std::string& rootFilePath
 				{
 					loadConfig_tun64(baseNext, id, moduleJson, rootFilePath, jsons);
 				}
+				else if (type == "tls_inspect")
+				{
+					loadConfig_tls_inspect(baseNext, id, moduleJson, rootFilePath, jsons);
+				}
 				else if (type == "nat64stateful")
 				{
 					loadConfig_nat64stateful(baseNext, id, moduleJson, rootFilePath, jsons);
@@ -699,6 +703,18 @@ void config_parser_t::loadConfig_tun64(controlplane::base_t& baseNext,
 
 	tunnel.nextModule = moduleJson.value("nextModule", "");
 	tunnel.tun64Id = tunnelId;
+}
+
+void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
+                                             const std::string& moduleId,
+                                             const nlohmann::json& moduleJson,
+                                             const std::string&,
+                                             const std::map<std::string, nlohmann::json>&)
+{
+	auto& tls = baseNext.tls_inspectors[moduleId];
+	tls.tlsId = baseNext.tls_inspectors.size();
+	tls.blacklist_sni = {"stub.bad.example"}; //<@todo
+	tls.nextModule = "";
 }
 
 void config_parser_t::loadConfig_tun64mappings(controlplane::base_t& baseNext,

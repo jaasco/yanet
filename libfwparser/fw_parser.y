@@ -59,9 +59,6 @@
   #include "libfwparser/fw_lexer.h"
   #include "libfwparser/fw_parser.h"
 
-  // replace yylex() function call
-  #define yylex cfg.Lex
-
   #ifdef YYDEBUG
   #define WARN_UNSUPPORTED(msg)	do {	\
 	if (debug_level() > 0)		\
@@ -70,6 +67,11 @@
   #else
   #define WARN_UNSUPPORTED(msg)
   #endif
+}
+
+%code {
+  // replace yylex() function call
+  #define yylex cfg.Lex
 }
 
 %start commands

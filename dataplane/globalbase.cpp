@@ -422,6 +422,10 @@ eResult generation::update(const common::idp::updateGlobalBase::request& request
 		{
 			result = dump_tags_ids(std::get<common::idp::updateGlobalBase::dump_tags_ids::request>(data));
 		}
+		else if (type == common::idp::updateGlobalBase::requestType::tls_inspectors)
+		{
+			result = tls_inspectors_update(std::get<common::idp::updateGlobalBase::tls_inspectors::request>(data));
+		}
 		else if (type == common::idp::updateGlobalBase::requestType::dregress_prefix_update)
 		{
 			result = dregress_prefix_update(std::get<common::idp::updateGlobalBase::dregress_prefix_update::request>(data));
@@ -634,6 +638,7 @@ eResult generation::clear()
 
 	tun64_enabled = 0;
 	decap_enabled = 0;
+	tls_inspector_enabled = 0;
 	nat64stateful_enabled = 0;
 	nat64stateless_enabled = 0;
 	nat46clat_enabled = 0;
@@ -2419,6 +2424,45 @@ eResult generation::dump_tags_ids(const common::idp::updateGlobalBase::dump_tags
 		if (it != dataPlane->tag_to_id.end())
 		{
 			dump_id_to_tag[i + 1] = it->second;
+		}
+	}
+
+	return eResult::success;
+}
+
+eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspectors::request& request)
+{
+	tls_inspector_enabled = 0;
+
+	for (auto& entry : tls_inspectors)
+	{
+		entry.count = 0;
+		memset(entry.sni, 0, sizeof(entry.sni));
+	}
+
+	for (const auto& [id, sni_set] : request)
+	{
+		if (id >= YANET_CONFIG_TLS_INSPECTORS_SIZE)
+			continue;
+
+		auto& entry = tls_inspectors[id];
+		size_t count = 0;
+
+		for (const auto& sni : sni_set)
+		{
+			if (count >= YANET_CONFIG_TLS_INSPECTORS_SNI_SIZE)
+				break;
+
+			strncpy(entry.sni[count], sni.c_str(), YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1);
+			entry.sni[count][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1] = '\0';
+			count++;
+		}
+
+		entry.count = count;
+
+		if (count > 0)
+		{
+			tls_inspector_enabled = 1;
 		}
 	}
 

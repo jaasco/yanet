@@ -35,7 +35,8 @@ sources = files('acl_compiler.cpp',
                 'rib.cpp',
                 'route.cpp',
                 'telegraf.cpp',
-                'tun64.cpp')
+                'tun64.cpp',
+                'tls.cpp')
 
 foreach arch : archs
     bin = 'yanet-controlplane'

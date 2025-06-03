@@ -39,6 +39,7 @@ using balancer_id_t = uint32_t;
 using balancer_service_id_t = uint32_t;
 using balancer_real_id_t = uint32_t;
 using tun64_id_t = uint32_t;
+using tls_inspector_id_t = uint32_t;
 using coreId = uint32_t;
 using socketId = uint32_t;
 using counterId = uint32_t;
@@ -2041,6 +2042,7 @@ enum class eFlowType : uint8_t
 	balancer_fragment,
 	nat46clat_lan,
 	nat46clat_wan,
+	tls_inspect,
 };
 
 inline const char* eFlowType_toString(eFlowType t)
@@ -2129,6 +2131,8 @@ inline const char* eFlowType_toString(eFlowType t)
 			return "nat46clat_lan";
 		case eFlowType::nat46clat_wan:
 			return "nat46clat_wan";
+		case eFlowType::tls_inspect:
+			return "convertToFlow";
 	}
 
 	return "unknown";

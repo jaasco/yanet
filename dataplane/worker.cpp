@@ -21,6 +21,7 @@
 #include "common/fallback.h"
 #include "common/nat46clat.h"
 
+#include "common/type.h"
 #include "dataplane/sdpserver.h"
 
 #include "action_dispatcher.h"
@@ -30,6 +31,7 @@
 #include "icmp.h"
 #include "metadata.h"
 #include "prepare.h"
+#include "tls_sni.h"
 #include "worker.h"
 
 //
@@ -252,6 +254,8 @@ void cWorker::start()
 	rte_prefetch0((void*)route_stack4.mbufs);
 	rte_prefetch0((void*)&route_stack6.mbufsCount);
 	rte_prefetch0((void*)route_stack6.mbufs);
+	rte_prefetch0((void*)&tls_inspector_ingress_stack.mbufsCount);
+	rte_prefetch0((void*)tls_inspector_ingress_stack.mbufs);
 
 	mainThread();
 }
@@ -908,6 +912,13 @@ inline void cWorker::handlePackets()
 		stack_size = balancer_icmp_forward_stack.mbufsCount;
 		balancer_icmp_forward_handle(); // forward icmp message to other balancers (if not sent to one of this balancer's reals)
 		tsc_deltas->write(tsc_start, stack_size, tsc_deltas->balancer_icmp_forward_handle, base_values.balancer_icmp_forward_handle);
+	}
+
+	if (globalbase.tls_inspector_enabled)
+	{
+		stack_size = tls_inspector_ingress_stack.mbufsCount;
+		tls_inspector_handle();
+		tsc_deltas->write(tsc_start, stack_size, tsc_deltas->tls_inspector_ingress_handle, base_values.tls_inspector_ingress_handle);
 	}
 
 	stack_size = route_stack4.mbufsCount + vrf_route_stack4.mbufsCount;
@@ -1754,6 +1765,10 @@ inline void cWorker::acl_ingress_flow(rte_mbuf* mbuf,
 		early_decap(mbuf);
 		after_early_decap_entry(mbuf);
 	}
+	else if (flow.type == common::globalBase::eFlowType::tls_inspect)
+	{
+		tls_inspector_entry(mbuf);
+	}
 	else if (flow.type == common::globalBase::eFlowType::controlPlane)
 	{
 		controlPlane(mbuf);
@@ -1929,6 +1944,152 @@ inline void cWorker::tun64_flow(rte_mbuf* mbuf,
 	else
 	{
 		drop(mbuf);
+	}
+}
+
+inline void cWorker::tls_inspector_entry(rte_mbuf* mbuf)
+{
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+
+	if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))
+	{
+		tls_inspector_ingress_stack.insert(mbuf);
+	}
+	// else if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6))
+	// {
+	// 	tls_inspect_stack6.insert(mbuf);
+	// }
+	else
+	{
+		controlPlane(mbuf); // fallback, если тип пакета не поддерживается
+	}
+}
+
+inline void cWorker::tls_inspector_handle()
+{
+	const auto& base = bases[localBaseId & 1];
+	const auto& inspector = base.globalBase->tls_inspectors[0];
+
+	if (unlikely(tls_inspector_ingress_stack.mbufsCount == 0))
+		return;
+
+	common::globalBase::tFlow flow(common::globalBase::eFlowType::route);
+	flow.data.atomic = 0;
+
+	for (uint32_t mbuf_i = 0; mbuf_i < tls_inspector_ingress_stack.mbufsCount; ++mbuf_i)
+	{
+		rte_mbuf* mbuf = tls_inspector_ingress_stack.mbufs[mbuf_i];
+		preparePacket(mbuf);
+		dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+
+		if (metadata->transport_headerType != IPPROTO_TCP)
+		{
+			tls_inspector_flow(mbuf, flow);
+			continue;
+		}
+
+		const rte_tcp_hdr* tcpHeader = rte_pktmbuf_mtod_offset(mbuf, rte_tcp_hdr*, metadata->transport_headerOffset);
+		metadata->transport_flags = tcpHeader->tcp_flags;
+		if (metadata->transport_flags & (0x01 /* FIN */ | 0x02 /* SYN */ | 0x04 /* RST */ | 0x20 /* URG */))
+		{
+			std::string flags;
+
+			if (metadata->transport_flags & 0x01)
+				flags += "FIN ";
+			if (metadata->transport_flags & 0x02)
+				flags += "SYN ";
+			if (metadata->transport_flags & 0x04)
+				flags += "RST ";
+			if (metadata->transport_flags & 0x08)
+				flags += "PSH ";
+			if (metadata->transport_flags & 0x10)
+				flags += "ACK ";
+			if (metadata->transport_flags & 0x20)
+				flags += "URG ";
+			if (metadata->transport_flags & 0x40)
+				flags += "ECE ";
+			if (metadata->transport_flags & 0x80)
+				flags += "CWR ";
+
+			YANET_LOG_DEBUG("TCP flags: %s (0x%02x)\n", flags.c_str(), metadata->transport_flags);
+			tls_inspector_flow(mbuf, flow);
+			continue;
+		}
+
+		if (sni_filter_matches(inspector.sni, inspector.count, mbuf))
+		{
+			drop(mbuf);
+		}
+		else
+		{
+			tls_inspector_flow(mbuf, flow);
+		}
+	}
+
+	tls_inspector_ingress_stack.clear();
+}
+
+inline bool cWorker::sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH],
+                                        uint32_t sni_count,
+                                        rte_mbuf* mbuf)
+{
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+
+	const uint8_t* payload = rte_pktmbuf_mtod_offset(
+	        mbuf, const uint8_t*, metadata->transport_headerOffset + sizeof(rte_tcp_hdr));
+
+	const uint16_t payload_offset = metadata->transport_headerOffset + sizeof(rte_tcp_hdr);
+	if (mbuf->pkt_len <= payload_offset)
+		return false;
+
+	const uint16_t payload_len = mbuf->pkt_len - payload_offset;
+
+	const char* sni_ptr = nullptr;
+	size_t sni_len = 0;
+
+	if (!parse_tls_sni(payload, payload_len, sni_ptr, sni_len))
+	{
+		YANET_LOG_DEBUG("No SNI found.\n");
+		return false;
+	}
+
+	for (uint32_t i = 0; i < sni_count; ++i)
+	{
+		const char* entry = sni_list[i];
+		size_t entry_len = strnlen(entry, YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH);
+
+		if (entry_len == sni_len && memcmp(sni_ptr, entry, sni_len) == 0)
+		{
+			YANET_LOG_DEBUG("Sni match. Drop it. Matched: %.*s\n", static_cast<int>(sni_len), sni_ptr);
+			return true;
+		}
+	}
+
+	YANET_LOG_DEBUG("Sni mismatch. Got: %.*s\n", static_cast<int>(sni_len), sni_ptr);
+	return false;
+}
+
+inline void cWorker::tls_inspector_flow(rte_mbuf* mbuf,
+                                        const common::globalBase::tFlow& flow)
+{
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+	metadata->flow = flow;
+
+	switch (flow.type)
+	{
+		case common::globalBase::eFlowType::route:
+			route_entry(mbuf);
+			break;
+		case common::globalBase::eFlowType::route_tunnel:
+		case common::globalBase::eFlowType::route_tunnel_ipip:
+			route_tunnel_entry(mbuf);
+			break;
+		case common::globalBase::eFlowType::controlPlane:
+			controlPlane(mbuf);
+			break;
+		default:
+			drop(mbuf);
+			break;
 	}
 }
 

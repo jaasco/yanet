@@ -56,6 +56,7 @@ protected:
 
 	void acl_rules_route_local(controlplane::base::acl_t& acl, const std::string& next_module) const;
 	void acl_rules_route_forward(controlplane::base::acl_t& acl, const std::string& next_module) const;
+	void acl_rules_tls_inspect(controlplane::base::acl_t& acl, const std::string& next_module) const;
 	void acl_rules_tun64(controlplane::base::acl_t& acl, const std::string& nextModule) const;
 	void acl_rules_decap(controlplane::base::acl_t& acl, const std::string& nextModule) const;
 	void acl_rules_nat64stateful(controlplane::base::acl_t& acl, const std::string& next_module) const;

@@ -74,8 +74,6 @@ send_pkt = eth / ip / tcp / tls
 wrpcap("send-001.pcap", [send_pkt])
 
 # RECV good
-eth = Ether(src=lp_mac, dst=peer_mac) / Dot1Q(vlan=vlan_out)
-ip = IP(src=client_ip, dst=server_ip, ttl=63) 
 recv_pkt = eth / ip / tcp / tls
 wrpcap("recv-001.pcap", [recv_pkt])
 

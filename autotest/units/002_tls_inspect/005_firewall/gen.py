@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 from scapy.all import *
-import os
 import struct
 
 def write_pcap(filename, *packetsList):
     if len(packetsList) == 0:
         PcapWriter(filename, linktype=1).close()
         return
-
     for packets in packetsList:
         if isinstance(packets, list):
             for packet in packets:
@@ -16,14 +14,11 @@ def write_pcap(filename, *packetsList):
         else:
             packets.time = 0
             wrpcap(filename, [packets], append=True)
-               
 
 def create_tls_clienthello(server_name: str = None):
-    # TLS record + handshake headers (filled later)
     tls_record_header = b'\x16\x03\x01\x00\x00'
     handshake_header = b'\x01\x00\x00\x00'
 
-    # ClientHello fields
     client_version = b'\x03\x03'
     client_random = b'\x00' * 32
     session_id_length = b'\x00'
@@ -33,7 +28,6 @@ def create_tls_clienthello(server_name: str = None):
     compression_methods_length = b'\x01'
     compression_methods = b'\x00'
 
-    # Optional SNI extension
     if server_name:
         sni_bytes = server_name.encode("utf-8")
         server_name_length = struct.pack('>H', len(sni_bytes))
@@ -64,28 +58,34 @@ def create_tls_clienthello(server_name: str = None):
 
     return Raw(tls_record)
 
-def create_packet(sni: str, ttl: int = 64):
+def create_packet(sni: str, src_ip: str, ttl: int = 64):
     eth = Ether(src="00:00:00:11:11:11", dst="00:11:22:33:44:55") / Dot1Q(vlan=100)
-    ip = IP(src="10.0.0.1", dst="10.0.0.2", ttl=ttl)
-
+    ip = IP(src=src_ip, dst="10.0.0.2", ttl=ttl)
     tcp = TCP(sport=12345, dport=443, flags="PA", seq=1000, ack=0)
     tls = create_tls_clienthello(sni)
     return eth / ip / tcp / tls
 
-def create_syn_packet(ttl: int = 64):
-    eth = Ether(src="00:11:22:33:44:55", dst="00:00:00:11:11:11") / Dot1Q(vlan=200)
-    ip = IP(src="10.0.0.1", dst="10.0.0.2", ttl=ttl)
-    tcp = TCP(sport=12345, dport=443, flags="S", seq=1000, ack=0)
-    return eth / ip / tcp 
+# Tests
+# packet with SNI = victim.com from 10.0.0.1 → should be dropped (empty output)
+write_pcap("send-001.pcap", [create_packet("victim.com", "10.0.0.1")])
+write_pcap("recv-001.pcap")  # dropped
 
-write_pcap("send-001.pcap", [create_packet('bad.example.com')])
-write_pcap("recv-001.pcap")  
+# packet with SNI = victim.com from 10.0.0.2 → should pass (TTL=64)
+write_pcap("send-002.pcap", [create_packet("victim.com", "10.0.0.2")])
+write_pcap("recv-002.pcap", [create_packet("victim.com", "10.0.0.2")])
 
-write_pcap("send-002.pcap", [create_packet('good.example.com')])
-write_pcap("recv-002.pcap", [create_packet('good.example.com')])
+# packet without SNI from 10.0.0.1 → should pass (TTL=63)
+write_pcap("send-003.pcap", [create_packet("", "10.0.0.1")])
+write_pcap("recv-003.pcap", [create_packet("", "10.0.0.1")])
 
-write_pcap("send-003.pcap", [create_syn_packet()])
-write_pcap("recv-003.pcap", [create_syn_packet()])
+# packet with SNI = example.com from 10.0.0.1 → should pass (TTL=63)
+write_pcap("send-004.pcap", [create_packet("example.com", "10.0.0.1")])
+write_pcap("recv-004.pcap", [create_packet("example.com", "10.0.0.1")])
 
-write_pcap("send-004.pcap", [create_packet('')])
-write_pcap("recv-004.pcap", [create_packet('')])
+# packet with SNI = example.com from 10.0.0.2 → should pass (TTL=63)
+write_pcap("send-005.pcap", [create_packet("example.com", "10.0.0.2")])
+write_pcap("recv-005.pcap", [create_packet("example.com", "10.0.0.2")])
+
+# packet without SNI from 10.0.0.2 → should pass (TTL=63)
+write_pcap("send-006.pcap", [create_packet("", "10.0.0.2")])
+write_pcap("recv-006.pcap", [create_packet("", "10.0.0.2")])

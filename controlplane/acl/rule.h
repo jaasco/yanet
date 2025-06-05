@@ -9,6 +9,8 @@
 
 #include "common/actions.h"
 
+#include "common/type.h"
+#include "libfwparser/fw_config.h"
 #include "network.h"
 
 #include "../acl.h"
@@ -1106,6 +1108,9 @@ public:
 				break;
 			case ipfw::rule_action_t::HITCOUNT:
 				action = common::acl::hit_count_t(std::get<std::string>(rulep->action_arg));
+				break;
+			case ipfw::rule_action_t::TLS_INSPECT:
+				action = common::globalBase::tFlow(common::globalBase::eFlowType::tls_inspect);
 				break;
 			default:
 				YANET_LOG_WARNING("unexpected rule action in rule '%s'\n", rulep->text.data());

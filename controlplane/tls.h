@@ -20,10 +20,11 @@ public:
 	void update([[maybe_unused]] const controlplane::base_t& base_prev,
 	            const controlplane::base_t& base_next)
 	{
+		config_tls_inspectors = base_next.tls_inspectors;
 	}
 
 public:
-	std::map<uint32_t, controlplane::tls_inspect::config_t> config_tls_inspectors;
+	std::map<std::string, controlplane::tls_inspect::config_t> config_tls_inspectors;
 };
 
 } // tls_inspect

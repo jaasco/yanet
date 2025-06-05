@@ -1,5 +1,5 @@
 :BEGIN
-add skipto :TLS tcp from any to any
+add skipto :TLS tcp from 10.0.0.1 to any
 add allow ip from any to any
 
 :TLS

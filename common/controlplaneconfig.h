@@ -290,13 +290,11 @@ class config_t
 public:
 	config_t() = default;
 
-	SERIALIZABLE(tlsId, blacklist_sni, nextModule);
+	SERIALIZABLE(tlsId, blacklist_sni);
 
 public:
 	tls_inspector_id_t tlsId;
 	std::vector<std::string> blacklist_sni;
-	std::string nextModule;
-	common::globalBase::tFlow flow;
 };
 
 }

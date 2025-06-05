@@ -2450,7 +2450,7 @@ eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::t
 
 		for (const auto& sni : sni_set)
 		{
-			if (count >= YANET_CONFIG_TLS_INSPECTORS_SNI_SIZE)
+			if (count >= YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL)
 				break;
 
 			strncpy(entry.sni[count], sni.c_str(), YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1);

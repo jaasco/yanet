@@ -168,6 +168,7 @@ record-state		return ipfw::fw_parser_t::make_RECORDSTATE(*ploc);
 keep-state		return ipfw::fw_parser_t::make_KEEPSTATE(*ploc);
 icmptype|icmptypes	return ipfw::fw_parser_t::make_ICMPTYPES(*ploc);
 icmp6type|icmp6types	return ipfw::fw_parser_t::make_ICMP6TYPES(*ploc);
+tls-inspect return  ipfw::fw_parser_t::make_TLS_INSPECT(*ploc);
 from			return ipfw::fw_parser_t::make_FROM(*ploc);
 to			return ipfw::fw_parser_t::make_TO(*ploc);
 me			return ipfw::fw_parser_t::make_ME(*ploc);

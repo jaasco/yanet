@@ -1967,14 +1967,11 @@ inline void cWorker::tls_inspector_entry(rte_mbuf* mbuf)
 
 inline void cWorker::tls_inspector_handle()
 {
-	const auto& base = bases[localBaseId & 1];
-	const auto& inspector = base.globalBase->tls_inspectors[0];
-
 	if (unlikely(tls_inspector_ingress_stack.mbufsCount == 0))
 		return;
-
-	common::globalBase::tFlow flow(common::globalBase::eFlowType::route);
-	flow.data.atomic = 0;
+	
+	const auto& base = bases[localBaseId & 1];
+	const auto& inspector = base.globalBase->tls_inspectors[0];
 
 	for (uint32_t mbuf_i = 0; mbuf_i < tls_inspector_ingress_stack.mbufsCount; ++mbuf_i)
 	{
@@ -1984,7 +1981,7 @@ inline void cWorker::tls_inspector_handle()
 
 		if (metadata->transport_headerType != IPPROTO_TCP)
 		{
-			tls_inspector_flow(mbuf, flow);
+			controlPlane(mbuf);
 			continue;
 		}
 
@@ -2012,7 +2009,7 @@ inline void cWorker::tls_inspector_handle()
 				flags += "CWR ";
 
 			YANET_LOG_DEBUG("TCP flags: %s (0x%02x)\n", flags.c_str(), metadata->transport_flags);
-			tls_inspector_flow(mbuf, flow);
+			controlPlane(mbuf);
 			continue;
 		}
 
@@ -2022,7 +2019,8 @@ inline void cWorker::tls_inspector_handle()
 		}
 		else
 		{
-			tls_inspector_flow(mbuf, flow);
+			controlPlane(mbuf);
+			continue;
 		}
 	}
 
@@ -2069,29 +2067,6 @@ inline bool cWorker::sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_
 	return false;
 }
 
-inline void cWorker::tls_inspector_flow(rte_mbuf* mbuf,
-                                        const common::globalBase::tFlow& flow)
-{
-	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
-	metadata->flow = flow;
-
-	switch (flow.type)
-	{
-		case common::globalBase::eFlowType::route:
-			route_entry(mbuf);
-			break;
-		case common::globalBase::eFlowType::route_tunnel:
-		case common::globalBase::eFlowType::route_tunnel_ipip:
-			route_tunnel_entry(mbuf);
-			break;
-		case common::globalBase::eFlowType::controlPlane:
-			controlPlane(mbuf);
-			break;
-		default:
-			drop(mbuf);
-			break;
-	}
-}
 
 inline void cWorker::decap_entry_checked(rte_mbuf* mbuf)
 {

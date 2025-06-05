@@ -45,10 +45,6 @@ recv_icmp = Ether(src=lp_mac, dst=peer_mac) / Dot1Q(vlan=vlan_out) / \
             IP(src=client_ip, dst=server_ip, ttl=63) / \
             ICMP(type="echo-request") / b"ping"
 
-del recv_icmp[IP].chksum
-del recv_icmp[ICMP].chksum
-recv_icmp = recv_icmp.__class__(bytes(recv_icmp))
-
 wrpcap("send-002.pcap", [send_icmp])
 wrpcap("recv-002.pcap", [recv_icmp])
 

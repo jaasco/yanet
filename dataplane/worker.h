@@ -123,7 +123,6 @@ protected:
 	inline void tls_inspector_entry(rte_mbuf* mbuf);
 	inline void tls_inspector_handle();
 	inline bool sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH], uint32_t sni_count, rte_mbuf* mbuf);
-	inline void tls_inspector_flow(rte_mbuf* mbuf, const common::globalBase::tFlow& flow);
 
 	inline void decap_entry_checked(rte_mbuf* mbuf);
 	inline void decap_handle();

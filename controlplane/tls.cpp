@@ -1,5 +1,4 @@
 #include "tls.h"
-#include "controlplane.h"
 
 void tls_inspector_t::reload_before()
 {
@@ -23,9 +22,17 @@ void tls_inspector_t::reload_after()
 void tls_inspector_t::compile(common::idp::updateGlobalBase::request& globalbase,
                               tls_inspect::generation_config_t& generation_config)
 {
+	common::idp::updateGlobalBase::tls_inspectors::request entries;
+
+	tls_inspector_id_t tlsId = 0;
+	for (const auto& [module_name, config] : generation_config.config_tls_inspectors)
+	{
+		std::set<std::string> blacklist(config.blacklist_sni.begin(), config.blacklist_sni.end());
+		entries.emplace_back(tlsId, std::move(blacklist));
+		++tlsId;
+	}
 
 	globalbase.emplace_back(
 	        common::idp::updateGlobalBase::requestType::tls_inspectors,
-	        common::idp::updateGlobalBase::tls_inspectors::request{
-	                {0, {"bad.example.com", "evil.site", "test.block"}}});
+	        std::move(entries));
 }

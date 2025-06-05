@@ -26,8 +26,8 @@ send_pkt = Ether(src=client_mac, dst=lp_mac) / Dot1Q(vlan=vlan_in) / \
 wrpcap("send-001.pcap", [send_pkt])
 
 # RECV 
-recv_pkt = Ether(src=lp_mac, dst=peer_mac) / Dot1Q(vlan=vlan_out) / \
-           IP(src=client_ip, dst=server_ip, ttl=63) / \
+recv_pkt = Ether(src=client_mac, dst=lp_mac) / Dot1Q(vlan=vlan_in) / \
+           IP(src=client_ip, dst=server_ip, ttl=64) / \
            TCP(sport=sport, dport=dport, flags="S", seq=seq)
 
 wrpcap("recv-001.pcap", [recv_pkt])

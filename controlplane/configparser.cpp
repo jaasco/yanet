@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "common/define.h"
 #include "errors.h"
 
 #include "common/idataplane.h"
@@ -712,9 +713,13 @@ void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
                                              const std::map<std::string, nlohmann::json>&)
 {
 	auto& tls = baseNext.tls_inspectors[moduleId];
-	tls.tlsId = baseNext.tls_inspectors.size();
-	tls.blacklist_sni = {"stub.bad.example"}; //<@todo
-	tls.nextModule = "";
+	if (exist(moduleJson, "blacklist"))
+	{
+		for (const auto& blacklistItemJson : moduleJson["blacklist"])
+		{
+			tls.blacklist_sni.emplace_back(blacklistItemJson);
+		}
+	}
 }
 
 void config_parser_t::loadConfig_tun64mappings(controlplane::base_t& baseNext,

@@ -291,7 +291,7 @@ struct tun64_t
 struct tls_inspect_t
 {
 	uint32_t count = 0;
-	char sni[YANET_CONFIG_TLS_INSPECTORS_SNI_SIZE][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH] = {};
+	char sni[YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH] = {};
 };
 
 struct route_t

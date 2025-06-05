@@ -314,15 +314,6 @@ void config_converter_t::convertToFlow(const std::string& nextModule,
 			flow.type = common::globalBase::eFlowType::balancer;
 		}
 	}
-	else if (moduleType == "tls_inspect")
-	{
-		flow.type = common::globalBase::eFlowType::tls_inspect;
-		auto it = baseNext.tls_inspectors.find(moduleName);
-		if (it == baseNext.tls_inspectors.end())
-		{
-			throw error_result_t(eResult::invalidFlow, "invalid nextModule: " + nextModule);
-		}
-	}
 	else
 	{
 		throw error_result_t(eResult::invalidType, "invalid moduleType");
@@ -803,10 +794,6 @@ void config_converter_t::processAcl()
 					acl_rules_route_forward(acl, nextModule);
 				}
 			}
-			else if (type == "tls_inspect")
-			{
-				acl_rules_tls_inspect(acl, nextModule);
-			}
 			else if (type == "tun64")
 			{
 				acl_rules_tun64(acl, nextModule);
@@ -935,13 +922,6 @@ void config_converter_t::acl_rules_route_local(controlplane::base::acl_t& acl,
 
 void config_converter_t::acl_rules_route_forward(controlplane::base::acl_t& acl,
                                                  [[maybe_unused]] const std::string& next_module) const
-{
-	common::globalBase::tFlow flow = convertToFlow(next_module);
-	acl.nextModuleRules.emplace_back(flow);
-}
-
-void config_converter_t::acl_rules_tls_inspect(controlplane::base::acl_t& acl,
-                                               const std::string& next_module) const
 {
 	common::globalBase::tFlow flow = convertToFlow(next_module);
 	acl.nextModuleRules.emplace_back(flow);

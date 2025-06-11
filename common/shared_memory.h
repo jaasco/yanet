@@ -41,7 +41,7 @@ public:
 
 		bool hugetlb_enabled = false;
 		bool line_found = false;
-		unsigned hugetlb_len = sizeof(str_hugetlb);
+		size_t hugetlb_len = strlen(str_hugetlb);
 		char buffer[256];
 		while (fgets(buffer, sizeof(buffer), fd))
 		{
@@ -53,12 +53,13 @@ public:
 					str++;
 				}
 				char* endptr = nullptr;
+				errno = 0;
 				unsigned long long size = strtoull(str, &endptr, 0);
 				// The string still contains kB (or mB, gB), but it only matters to us
 				// whether the value is 0 or not
 				if (errno != 0)
 				{
-					YANET_LOG_ERROR("Error parsing size of %s in file %s\n", str_hugetlb, path_meminfo);
+					YANET_LOG_ERROR("Error parsing size '%s' of %s in file %s, error %d: %s\n", str, str_hugetlb, path_meminfo, errno, strerror(errno));
 					return false;
 				}
 				hugetlb_enabled = (size != 0);

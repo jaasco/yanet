@@ -720,6 +720,7 @@ void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
 			tls.blacklist_sni.emplace_back(blacklistItemJson);
 		}
 	}
+	tls.next_module = moduleJson.value("nextModule", "");
 }
 
 void config_parser_t::loadConfig_tun64mappings(controlplane::base_t& baseNext,

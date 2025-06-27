@@ -167,7 +167,7 @@ enum class requestType : uint32_t
 	tsc_state_update,
 	tscs_base_value_update,
 	update_host_config,
-        tls_inspectors
+	tls_inspector_update
 };
 
 namespace updateLogicalPort
@@ -381,9 +381,13 @@ namespace dump_tags_ids
 using request = std::vector<std::string>;
 }
 
-namespace tls_inspectors
+namespace tls_inspector_update
 {
-using request = std::vector<std::tuple<tls_inspector_id_t, std::set<std::string>>>;
+using request = std::tuple<
+        tls_inspector_id_t, ///< tls_inspector_id
+        std::set<std::string>, ///< sni set
+        common::globalBase::tFlow>; ///< flow
+
 }
 
 namespace route_lpm_update
@@ -558,7 +562,7 @@ using requestVariant = std::variant<std::tuple<>,
                                     serial_update::request,
                                     nat46clat_update::request,
                                     tscs_base_value_update::request,
-                                    tls_inspectors::request,
+                                    tls_inspector_update::request,
                                     update_host_config::request>;
 
 using request = std::vector<std::tuple<requestType,

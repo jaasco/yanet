@@ -292,6 +292,7 @@ struct tls_inspect_t
 {
 	uint32_t count = 0;
 	char sni[YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH] = {};
+	common::globalBase::tFlow flow;
 };
 
 struct route_t

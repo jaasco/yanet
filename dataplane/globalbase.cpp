@@ -422,9 +422,9 @@ eResult generation::update(const common::idp::updateGlobalBase::request& request
 		{
 			result = dump_tags_ids(std::get<common::idp::updateGlobalBase::dump_tags_ids::request>(data));
 		}
-		else if (type == common::idp::updateGlobalBase::requestType::tls_inspectors)
+		else if (type == common::idp::updateGlobalBase::requestType::tls_inspector_update)
 		{
-			result = tls_inspectors_update(std::get<common::idp::updateGlobalBase::tls_inspectors::request>(data));
+			result = tls_inspectors_update(std::get<common::idp::updateGlobalBase::tls_inspector_update::request>(data));
 		}
 		else if (type == common::idp::updateGlobalBase::requestType::dregress_prefix_update)
 		{
@@ -2430,7 +2430,7 @@ eResult generation::dump_tags_ids(const common::idp::updateGlobalBase::dump_tags
 	return eResult::success;
 }
 
-eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspectors::request& request)
+eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspector_update::request& request)
 {
 	tls_inspector_enabled = 0;
 
@@ -2440,31 +2440,45 @@ eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::t
 		memset(entry.sni, 0, sizeof(entry.sni));
 	}
 
-	for (const auto& [id, sni_set] : request)
+	const auto& [id, sni_set, flow] = request;
+
+	if (id >= YANET_CONFIG_TLS_INSPECTORS_SIZE)
 	{
-		if (id >= YANET_CONFIG_TLS_INSPECTORS_SIZE)
-			continue;
-
-		auto& entry = tls_inspectors[id];
-		size_t count = 0;
-
-		for (const auto& sni : sni_set)
-		{
-			if (count >= YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL)
-				break;
-
-			strncpy(entry.sni[count], sni.c_str(), YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1);
-			entry.sni[count][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1] = '\0';
-			count++;
-		}
-
-		entry.count = count;
-
-		if (count > 0)
-		{
-			tls_inspector_enabled = 1;
-		}
+		YADECAP_LOG_ERROR("invalid tls_inspector_id: '%u'\n", id);
+		return eResult::invalidId;
 	}
+	if (flow.type != common::globalBase::eFlowType::route &&
+	    flow.type != common::globalBase::eFlowType::route_tunnel &&
+	    flow.type != common::globalBase::eFlowType::route_tunnel_ipip &&
+	    flow.type != common::globalBase::eFlowType::controlPlane &&
+	    flow.type != common::globalBase::eFlowType::drop)
+	{
+		YADECAP_LOG_ERROR("invalid flow\n");
+		return eResult::invalidFlow;
+	}
+	if (!checkFlow(flow))
+	{
+		YADECAP_LOG_ERROR("invalid flow\n");
+		return eResult::invalidFlow;
+	}
+
+	auto& tls_inspector = tls_inspectors[id];
+	size_t count = 0;
+	for (const auto& sni : sni_set)
+	{
+		if (count >= YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL)
+			break;
+
+		strncpy(tls_inspector.sni[count], sni.c_str(), YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1);
+		tls_inspector.sni[count][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH - 1] = '\0';
+		count++;
+	}
+	tls_inspector.count = count;
+	if (count > 0)
+	{
+		tls_inspector_enabled = 1;
+	}
+	tls_inspector.flow = flow;
 
 	return eResult::success;
 }

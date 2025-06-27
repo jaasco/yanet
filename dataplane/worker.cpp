@@ -31,7 +31,6 @@
 #include "icmp.h"
 #include "metadata.h"
 #include "prepare.h"
-#include "tls_sni.h"
 #include "worker.h"
 
 //
@@ -1969,9 +1968,9 @@ inline void cWorker::tls_inspector_handle()
 {
 	if (unlikely(tls_inspector_ingress_stack.mbufsCount == 0))
 		return;
-	
+
 	const auto& base = bases[localBaseId & 1];
-	const auto& inspector = base.globalBase->tls_inspectors[0];
+	const auto& flow = base.globalBase->tls_inspectors[0].flow;
 
 	for (uint32_t mbuf_i = 0; mbuf_i < tls_inspector_ingress_stack.mbufsCount; ++mbuf_i)
 	{
@@ -1981,7 +1980,7 @@ inline void cWorker::tls_inspector_handle()
 
 		if (metadata->transport_headerType != IPPROTO_TCP)
 		{
-			controlPlane(mbuf);
+			tls_inspector_flow(mbuf, flow);
 			continue;
 		}
 
@@ -1989,84 +1988,39 @@ inline void cWorker::tls_inspector_handle()
 		metadata->transport_flags = tcpHeader->tcp_flags;
 		if (metadata->transport_flags & (0x01 /* FIN */ | 0x02 /* SYN */ | 0x04 /* RST */ | 0x20 /* URG */))
 		{
-			std::string flags;
-
-			if (metadata->transport_flags & 0x01)
-				flags += "FIN ";
-			if (metadata->transport_flags & 0x02)
-				flags += "SYN ";
-			if (metadata->transport_flags & 0x04)
-				flags += "RST ";
-			if (metadata->transport_flags & 0x08)
-				flags += "PSH ";
-			if (metadata->transport_flags & 0x10)
-				flags += "ACK ";
-			if (metadata->transport_flags & 0x20)
-				flags += "URG ";
-			if (metadata->transport_flags & 0x40)
-				flags += "ECE ";
-			if (metadata->transport_flags & 0x80)
-				flags += "CWR ";
-
-			YANET_LOG_DEBUG("TCP flags: %s (0x%02x)\n", flags.c_str(), metadata->transport_flags);
-			controlPlane(mbuf);
+			tls_inspector_flow(mbuf, flow);
 			continue;
 		}
 
-		if (sni_filter_matches(inspector.sni, inspector.count, mbuf))
-		{
-			drop(mbuf);
-		}
-		else
-		{
-			controlPlane(mbuf);
-			continue;
-		}
+		slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspect);
 	}
 
 	tls_inspector_ingress_stack.clear();
 }
 
-inline bool cWorker::sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH],
-                                        uint32_t sni_count,
-                                        rte_mbuf* mbuf)
+inline void cWorker::tls_inspector_flow(rte_mbuf* mbuf,
+                                        const common::globalBase::tFlow& flow)
 {
 	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+	metadata->flow = flow;
 
-	const uint8_t* payload = rte_pktmbuf_mtod_offset(
-	        mbuf, const uint8_t*, metadata->transport_headerOffset + sizeof(rte_tcp_hdr));
-
-	const uint16_t payload_offset = metadata->transport_headerOffset + sizeof(rte_tcp_hdr);
-	if (mbuf->pkt_len <= payload_offset)
-		return false;
-
-	const uint16_t payload_len = mbuf->pkt_len - payload_offset;
-
-	const char* sni_ptr = nullptr;
-	size_t sni_len = 0;
-
-	if (!parse_tls_sni(payload, payload_len, sni_ptr, sni_len))
+	if (flow.type == common::globalBase::eFlowType::route)
 	{
-		YANET_LOG_DEBUG("No SNI found.\n");
-		return false;
+		route_entry(mbuf);
 	}
-
-	for (uint32_t i = 0; i < sni_count; ++i)
+	else if (flow.type == common::globalBase::eFlowType::route_tunnel || flow.type == common::globalBase::eFlowType::route_tunnel_ipip)
 	{
-		const char* entry = sni_list[i];
-		size_t entry_len = strnlen(entry, YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH);
-
-		if (entry_len == sni_len && memcmp(sni_ptr, entry, sni_len) == 0)
-		{
-			YANET_LOG_DEBUG("Sni match. Drop it. Matched: %.*s\n", static_cast<int>(sni_len), sni_ptr);
-			return true;
-		}
+		route_tunnel_entry(mbuf);
 	}
-
-	YANET_LOG_DEBUG("Sni mismatch. Got: %.*s\n", static_cast<int>(sni_len), sni_ptr);
-	return false;
+	else if (flow.type == common::globalBase::eFlowType::controlPlane)
+	{
+		controlPlane(mbuf);
+	}
+	else
+	{
+		drop(mbuf);
+	}
 }
-
 
 inline void cWorker::decap_entry_checked(rte_mbuf* mbuf)
 {

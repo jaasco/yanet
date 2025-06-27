@@ -295,6 +295,8 @@ public:
 public:
 	tls_inspector_id_t tlsId;
 	std::vector<std::string> blacklist_sni;
+	common::globalBase::flow_t flow;
+	std::string next_module;
 };
 
 }

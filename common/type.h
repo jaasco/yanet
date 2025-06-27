@@ -2043,6 +2043,7 @@ enum class eFlowType : uint8_t
 	nat46clat_lan,
 	nat46clat_wan,
 	tls_inspect,
+	slowWorker_tls_inspect,
 };
 
 inline const char* eFlowType_toString(eFlowType t)
@@ -2132,7 +2133,9 @@ inline const char* eFlowType_toString(eFlowType t)
 		case eFlowType::nat46clat_wan:
 			return "nat46clat_wan";
 		case eFlowType::tls_inspect:
-			return "convertToFlow";
+			return "convertFlow";
+		case eFlowType::slowWorker_tls_inspect:
+			return "slowWorker_tls_inspect";
 	}
 
 	return "unknown";

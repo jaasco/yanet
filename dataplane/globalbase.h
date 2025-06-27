@@ -192,7 +192,7 @@ protected:
 	eResult tsc_state_update(const common::idp::updateGlobalBase::tsc_state_update::request& request);
 	eResult tscs_base_value_update(const common::idp::updateGlobalBase::tscs_base_value_update::request& request);
 	eResult update_host_config(const common::idp::updateGlobalBase::update_host_config::request& request);
-	eResult tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspectors::request& request);
+	eResult tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspector_update::request& request);
 
 	void evaluate_service_ring();
 	inline uint64_t count_real_connections(uint32_t counter_id);

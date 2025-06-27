@@ -86,8 +86,10 @@ public:
 	void handlePacket_fw_state_sync(rte_mbuf* mbuf);
 	bool handlePacket_fw_state_sync_ingress(rte_mbuf* mbuf);
 	void handlePacket_balancer_icmp_forward(rte_mbuf* mbuf);
+	void handlerPacket_tls_inspect(rte_mbuf* mbuf);
 	void handlePacketFromForwardingPlane(rte_mbuf* mbuf);
 	void HandleWorkerRings();
+	inline bool sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH], uint32_t sni_count, rte_mbuf* mbuf);
 
 	// \brief dequeue packets from worker_gc's ring to slowworker
 	void DequeueGC();

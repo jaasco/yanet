@@ -516,13 +516,14 @@ eResult cDataPlane::initPorts()
 
 		rte_eth_conf portConf;
 		memset(&portConf, 0, sizeof(rte_eth_conf));
-
+ 		
 		if (rss_flags != 0)
 		{
 			portConf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
 
 			YADECAP_LOG_INFO("device info: flow type rss offloads 0x%lx\n", devInfo.flow_type_rss_offloads);
 			YADECAP_LOG_INFO("port.rss_flags: 0x%lx\n", rss_flags);
+			
 			if ((devInfo.flow_type_rss_offloads | rss_flags) == devInfo.flow_type_rss_offloads)
 			{
 				portConf.rx_adv_conf.rss_conf.rss_hf = rss_flags;

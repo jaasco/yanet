@@ -123,6 +123,7 @@ struct alignas(2 * RTE_CACHE_LINE_SIZE) tsc_deltas
 		                nat46clat_lan_handle,
 		                nat46clat_wan_handle,
 		                balancer_handle,
+		                tls_inspector_ingress_handle,
 		                balancer_icmp_reply_handle,
 		                balancer_icmp_forward_handle,
 		                route_tunnel_handle4,

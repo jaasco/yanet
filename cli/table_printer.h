@@ -47,7 +47,7 @@ public:
 
 	// Insert values from a container as one row
 	template<typename Iterator, typename = typename std::iterator_traits<Iterator>::iterator_category>
-	void insert_row(Iterator begin, Iterator end)
+	void insert_row_from_range(Iterator begin, Iterator end)
 	{
 		std::vector<std::string> row;
 		for (auto it = begin; it != end; ++it)
@@ -64,7 +64,7 @@ public:
 	 * object obtained from controlplane
 	 */
 	template<typename Iterator, typename = typename std::iterator_traits<Iterator>::iterator_category>
-	void insert(Iterator begin, Iterator end)
+	void insert_from_range(Iterator begin, Iterator end)
 	{
 		for (auto it = begin; it != end; ++it)
 		{

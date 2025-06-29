@@ -149,7 +149,7 @@ inline void counter(uint32_t counter_id, const std::optional<uint32_t>& range_si
 	const auto& response = common::sdp::SdpClient::GetCounters(counter_ids);
 
 	TablePrinter table;
-	table.insert("counter_id", "value");
+	table.insert_row("counter_id", "value");
 
 	for (uint32_t i = 0; i < counter_ids.size(); i++)
 	{
@@ -363,7 +363,7 @@ private:
 
 		utils::zip_apply(op, of_store_tuple, cnt_tuple);
 
-		table.insert_row(row.begin(), row.end());
+		table.insert_row_from_range(row.begin(), row.end());
 	}
 };
 

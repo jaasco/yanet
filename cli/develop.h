@@ -250,6 +250,7 @@ private:
 			                obj.nat46clat_lan_handle,
 			                obj.nat46clat_wan_handle,
 			                obj.balancer_handle,
+			                obj.tls_inspector_ingress_handle,
 			                obj.balancer_icmp_reply_handle,
 			                obj.balancer_icmp_forward_handle,
 			                obj.route_tunnel_handle4,
@@ -278,6 +279,7 @@ private:
 		CountersArray nat46clat_lan_handle{};
 		CountersArray nat46clat_wan_handle{};
 		CountersArray balancer_handle{};
+		CountersArray tls_inspector_ingress_handle{};
 
 		CountersArray balancer_icmp_reply_handle{};
 		CountersArray balancer_icmp_forward_handle{};
@@ -334,6 +336,7 @@ private:
 		                 "nat46clat_lan",
 		                 "nat46clat_wan",
 		                 "balancer",
+		                 "tls_inspector_ingress",
 		                 "balancer_icmp_reply",
 		                 "balancer_icmp_forward",
 		                 "route_tunnel4",

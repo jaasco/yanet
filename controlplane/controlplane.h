@@ -154,7 +154,7 @@ protected:
 	friend class balancer_t;
 	friend class tun64_t;
 	friend class config_converter_t;
-	friend class tls_isnpector;
+	friend class tls_inspector_t;
 
 	volatile bool flagStop;
 

@@ -1977,6 +1977,7 @@ inline void cWorker::tls_inspector_handle()
 		rte_mbuf* mbuf = tls_inspector_ingress_stack.mbufs[mbuf_i];
 		preparePacket(mbuf);
 		dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+		counters[flow.counter_id]++;
 
 		if (metadata->transport_headerType != IPPROTO_TCP)
 		{

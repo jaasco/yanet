@@ -268,7 +268,6 @@ private:
 		CountersArray acl_ingress_handle6{};
 		CountersArray tun64_ipv4_handle{};
 		CountersArray tun64_ipv6_handle{};
-		CountersArray tls_inspector_ingress_handle{};
 		CountersArray route_handle4{};
 		CountersArray route_handle6{};
 
@@ -280,6 +279,7 @@ private:
 		CountersArray nat46clat_lan_handle{};
 		CountersArray nat46clat_wan_handle{};
 		CountersArray balancer_handle{};
+		CountersArray tls_inspector_ingress_handle{};
 
 		CountersArray balancer_icmp_reply_handle{};
 		CountersArray balancer_icmp_forward_handle{};

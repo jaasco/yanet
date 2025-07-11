@@ -386,8 +386,8 @@ namespace tls_inspector_update
 using request = std::tuple<
         tls_inspector_id_t, ///< tls_inspector_id
         std::set<std::string>, ///< sni set
-        common::globalBase::tFlow>; ///< flow
-
+        common::globalBase::tFlow, ///< flow
+        bool>; ///< enable use_slow_worker
 }
 
 namespace route_lpm_update

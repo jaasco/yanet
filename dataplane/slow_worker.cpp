@@ -1002,44 +1002,4 @@ void SlowWorker::handlerPacket_tls_inspect(rte_mbuf* mbuf)
 	SendToSlowWorker(mbuf, tls.flow);
 }
 
-inline bool SlowWorker::sni_filter_matches(const char (*sni_list)[YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH],
-                                           uint32_t sni_count,
-                                           rte_mbuf* mbuf)
-{
-	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
-
-	const uint8_t* payload = rte_pktmbuf_mtod_offset(
-	        mbuf, const uint8_t*, metadata->transport_headerOffset + sizeof(rte_tcp_hdr));
-
-	const uint16_t payload_offset = metadata->transport_headerOffset + sizeof(rte_tcp_hdr);
-	if (mbuf->pkt_len <= payload_offset)
-		return false;
-
-	const uint16_t payload_len = mbuf->pkt_len - payload_offset;
-
-	const char* sni_ptr = nullptr;
-	size_t sni_len = 0;
-
-	if (!parse_tls_sni(payload, payload_len, sni_ptr, sni_len))
-	{
-		YANET_LOG_DEBUG("No SNI found.\n");
-		return false;
-	}
-
-	for (uint32_t i = 0; i < sni_count; ++i)
-	{
-		const char* entry = sni_list[i];
-		size_t entry_len = strnlen(entry, YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH);
-
-		if (entry_len == sni_len && memcmp(sni_ptr, entry, sni_len) == 0)
-		{
-			YANET_LOG_DEBUG("Sni match. Drop it. Matched: %.*s\n", static_cast<int>(sni_len), sni_ptr);
-			return true;
-		}
-	}
-
-	YANET_LOG_DEBUG("Sni mismatch. Got: %.*s\n", static_cast<int>(sni_len), sni_ptr);
-	return false;
-}
-
 } // namespace dataplane

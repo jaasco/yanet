@@ -213,13 +213,22 @@ eResult cDataPlane::init(const std::string& binaryPath,
 	}
 
 	/// sanity check
-	if (rte_lcore_count() != workers.size() + worker_gcs.size() + slow_workers.size())
+	std::unordered_set<tCoreId> used_lcores;
+	used_lcores.insert(config.controlPlaneCoreId);
+	for (const auto& [core, worker] : workers)
+		used_lcores.insert(core);
+
+	for (const auto& [core, gc] : worker_gcs)
+		used_lcores.insert(core);
+
+	for (const auto& [core, slow] : slow_workers)
+		used_lcores.insert(core);
+
+	if (used_lcores.size() != rte_lcore_count())
 	{
-		YADECAP_LOG_ERROR("invalid cores count: %u != %luwork + %lugc + %luslow\n",
-		                  rte_lcore_count(),
-		                  workers.size(),
-		                  worker_gcs.size(),
-		                  slow_workers.size());
+		YANET_LOG_ERROR("Invalid core config: used %zu lcores, but DPDK has %u enabled cores",
+		                used_lcores.size(),
+		                rte_lcore_count());
 		return eResult::invalidCoresCount;
 	}
 
@@ -518,14 +527,14 @@ eResult cDataPlane::initPorts()
 
 		rte_eth_conf portConf;
 		memset(&portConf, 0, sizeof(rte_eth_conf));
- 		
+
 		if (rss_flags != 0)
 		{
 			portConf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
 
 			YADECAP_LOG_INFO("device info: flow type rss offloads 0x%lx\n", devInfo.flow_type_rss_offloads);
 			YADECAP_LOG_INFO("port.rss_flags: 0x%lx\n", rss_flags);
-			
+
 			if ((devInfo.flow_type_rss_offloads | rss_flags) == devInfo.flow_type_rss_offloads)
 			{
 				portConf.rx_adv_conf.rss_conf.rss_hf = rss_flags;
@@ -1215,7 +1224,7 @@ eResult cDataPlane::InitSlowWorker(tCoreId core, const std::set<tCoreId>& worker
 		{
 			ss << p << ' ';
 		}
-		YANET_LOG_INFO("controlplane worker on core %d, serving [%s]\n", core, ss.str().c_str());
+		YANET_LOG_INFO("controlplane worker on core %d, serving ports [%s]\n", core, ss.str().c_str());
 	}
 
 	std::vector<cWorker*> workers_to_service;
@@ -1244,20 +1253,17 @@ eResult cDataPlane::InitSlowWorker(tCoreId core, const std::set<tCoreId>& worker
 	}
 
 	std::vector<dpdk::RingConn<rte_mbuf*>> rings_from_gcs;
-	for (auto& gccore : gcs_to_service)
+
+	const auto gc_core = gcs_to_service.at(core % gcs_to_service.size());
+	auto r = worker_gcs.at(gc_core)->RegisterSlowWorker("cw" + std::to_string(core) + "_" + std::to_string(gc_core),
+	                                                    config_values_.ring_normalPriority_size,
+	                                                    config_values_.ring_toFreePackets_size);
+	if (!r)
 	{
-		auto r = worker_gcs.at(gccore)->RegisterSlowWorker("cw" + std::to_string(core),
-		                                                   config_values_.ring_normalPriority_size,
-		                                                   config_values_.ring_toFreePackets_size);
-		if (r)
-		{
-			rings_from_gcs.push_back(r.value());
-		}
-		else
-		{
-			abort();
-		}
+		std::abort();
 	}
+
+	rings_from_gcs.push_back(r.value());
 
 	auto slow = new dataplane::SlowWorker(worker,
 	                                      std::move(ports_to_service),
@@ -1455,14 +1461,23 @@ void cDataPlane::SWRateLimiterTimeTracker()
 int cDataPlane::LcoreFunc(void* args)
 {
 	const auto& workloads = *reinterpret_cast<std::map<tCoreId, std::function<void()>>*>(args);
-	if (auto it = workloads.find(rte_lcore_id()); it != workloads.end())
+	const tCoreId core_id = rte_lcore_id();
+
+	if (auto it = workloads.find(core_id); it != workloads.end())
 	{
 		it->second();
 		return 0;
 	}
 	else
 	{
-		YADECAP_LOG_ERROR("invalid core id: '%u'\n", rte_lcore_id());
+		YADECAP_LOG_ERROR("invalid core id: %u — not found in workloads (total entries: %zu)\n",
+		                  core_id,
+		                  workloads.size());
+
+		for (const auto& [registered_core, _] : workloads)
+		{
+			YADECAP_LOG_ERROR("  registered core: %u\n", registered_core);
+		}
 		return -1;
 	}
 }

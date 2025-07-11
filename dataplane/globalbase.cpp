@@ -2440,7 +2440,7 @@ eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::t
 		memset(entry.sni, 0, sizeof(entry.sni));
 	}
 
-	const auto& [id, sni_set, flow] = request;
+	const auto& [id, sni_set, flow, use_slow_worker] = request;
 
 	if (id >= YANET_CONFIG_TLS_INSPECTORS_SIZE)
 	{
@@ -2479,6 +2479,7 @@ eResult generation::tls_inspectors_update(const common::idp::updateGlobalBase::t
 		tls_inspector_enabled = 1;
 	}
 	tls_inspector.flow = flow;
+	tls_inspector.use_slow_worker = use_slow_worker;
 
 	return eResult::success;
 }

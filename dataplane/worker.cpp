@@ -31,6 +31,7 @@
 #include "icmp.h"
 #include "metadata.h"
 #include "prepare.h"
+#include "tls_sni.h"
 #include "worker.h"
 
 //
@@ -1970,18 +1971,18 @@ inline void cWorker::tls_inspector_handle()
 		return;
 
 	const auto& base = bases[localBaseId & 1];
-	const auto& flow = base.globalBase->tls_inspectors[0].flow;
+	const auto& tls = base.globalBase->tls_inspectors[0];
 
 	for (uint32_t mbuf_i = 0; mbuf_i < tls_inspector_ingress_stack.mbufsCount; ++mbuf_i)
 	{
 		rte_mbuf* mbuf = tls_inspector_ingress_stack.mbufs[mbuf_i];
 		preparePacket(mbuf);
 		dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
-		counters[flow.counter_id]++;
+		counters[tls.flow.counter_id]++;
 
 		if (metadata->transport_headerType != IPPROTO_TCP)
 		{
-			tls_inspector_flow(mbuf, flow);
+			tls_inspector_flow(mbuf, tls.flow);
 			continue;
 		}
 
@@ -1989,11 +1990,48 @@ inline void cWorker::tls_inspector_handle()
 		metadata->transport_flags = tcpHeader->tcp_flags;
 		if (metadata->transport_flags & (0x01 /* FIN */ | 0x02 /* SYN */ | 0x04 /* RST */ | 0x20 /* URG */))
 		{
-			tls_inspector_flow(mbuf, flow);
+			tls_inspector_flow(mbuf, tls.flow);
 			continue;
 		}
 
-		slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspect);
+		// Skip packets without enough payload for TLS ClientHello
+		uint16_t tcp_hdr_len = (tcpHeader->data_off >> 4) * 4;
+		uint16_t l7_offset = metadata->transport_headerOffset + tcp_hdr_len;
+		uint16_t pkt_len = rte_pktmbuf_pkt_len(mbuf);
+
+		if (pkt_len < l7_offset + 6)
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		const uint8_t* pkt_data = rte_pktmbuf_mtod(mbuf, uint8_t*);
+		const uint8_t* payload = pkt_data + l7_offset;
+		
+		bool isClientHello =
+		        payload[0] == 0x16 && // TLS Handshake Content Type
+		        payload[1] == 0x03 && // TLS Version major == 3 (TLS 1.x)
+		        payload[5] == 0x01; // Handshake Type: ClientHello
+
+		if (!isClientHello)
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		if (tls.use_slow_worker)
+		{
+			slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspect);
+			continue;
+		}
+
+		if (sni_filter_matches(tls.sni, tls.count, mbuf))
+		{
+			drop(mbuf);
+			continue;
+		}
+
+		tls_inspector_flow(mbuf, tls.flow);
 	}
 
 	tls_inspector_ingress_stack.clear();

@@ -4,6 +4,11 @@
 eResult tls_inspector_t::init()
 {
 	tls_counters.init(&controlPlane->counter_manager);
+
+	funcThreads.emplace_back([this]() {
+		counters_gc_thread();
+	});
+
 	return eResult::success;
 }
 
@@ -53,7 +58,8 @@ void tls_inspector_t::compile(common::idp::updateGlobalBase::request& globalbase
 		globalbase.emplace_back(common::idp::updateGlobalBase::requestType::tls_inspector_update,
 		                        common::idp::updateGlobalBase::tls_inspector_update::request(tlsId,
 		                                                                                     blacklist,
-		                                                                                     tls_inspector.flow));
+		                                                                                     tls_inspector.flow,
+		                                                                                     tls_inspector.use_slow_worker));
 		++tlsId;
 	}
 }

@@ -721,6 +721,7 @@ void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
 		}
 	}
 	tls.next_module = moduleJson.value("nextModule", "");
+	tls.use_slow_worker = moduleJson.value("useSlowWorker", false);
 }
 
 void config_parser_t::loadConfig_tun64mappings(controlplane::base_t& baseNext,

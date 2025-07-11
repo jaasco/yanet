@@ -149,7 +149,7 @@ inline void counter(uint32_t counter_id, const std::optional<uint32_t>& range_si
 	const auto& response = common::sdp::SdpClient::GetCounters(counter_ids);
 
 	TablePrinter table;
-	table.insert("counter_id", "value");
+	table.insert_row("counter_id", "value");
 
 	for (uint32_t i = 0; i < counter_ids.size(); i++)
 	{
@@ -250,6 +250,7 @@ private:
 			                obj.nat46clat_lan_handle,
 			                obj.nat46clat_wan_handle,
 			                obj.balancer_handle,
+			                obj.tls_inspector_ingress_handle,
 			                obj.balancer_icmp_reply_handle,
 			                obj.balancer_icmp_forward_handle,
 			                obj.route_tunnel_handle4,
@@ -278,6 +279,7 @@ private:
 		CountersArray nat46clat_lan_handle{};
 		CountersArray nat46clat_wan_handle{};
 		CountersArray balancer_handle{};
+		CountersArray tls_inspector_ingress_handle{};
 
 		CountersArray balancer_icmp_reply_handle{};
 		CountersArray balancer_icmp_forward_handle{};
@@ -334,6 +336,7 @@ private:
 		                 "nat46clat_lan",
 		                 "nat46clat_wan",
 		                 "balancer",
+		                 "tls_inspector_ingress",
 		                 "balancer_icmp_reply",
 		                 "balancer_icmp_forward",
 		                 "route_tunnel4",
@@ -363,7 +366,7 @@ private:
 
 		utils::zip_apply(op, of_store_tuple, cnt_tuple);
 
-		table.insert_row(row.begin(), row.end());
+		table.insert_row_from_range(row.begin(), row.end());
 	}
 };
 

@@ -288,6 +288,14 @@ struct tun64_t
 	uint8_t ipv4DSCPFlags;
 };
 
+struct tls_inspect_t
+{
+	uint32_t count = 0;
+	char sni[YANET_CONFIG_TLS_INSPECTORS_SNI_TOTAL][YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH] = {};
+	common::globalBase::tFlow flow;
+	bool use_slow_worker;
+};
+
 struct route_t
 {
 	ipv4_address_t ipv4AddressSource;

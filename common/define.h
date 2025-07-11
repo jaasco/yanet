@@ -223,3 +223,5 @@ inline void limit_insert(list_T& list,
 	const auto& [current, maximum] = current_maximum;
 	limit_insert(list, name, std::nullopt, current, maximum);
 }
+
+#define RETA_CONF_SIZE (RTE_ETH_RSS_RETA_SIZE_512 / RTE_ETH_RETA_GROUP_SIZE)

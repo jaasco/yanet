@@ -61,7 +61,7 @@ eResult worker_gc_t::init(const tCoreId& core_id,
 	                             nullptr,
 	                             rte_pktmbuf_init,
 	                             nullptr,
-	                             rte_socket_id(),
+	                             socket_id,
 	                             0); ///< multi-producers, multi-consumers
 	if (!mempool)
 	{
@@ -81,6 +81,8 @@ eResult worker_gc_t::init(const tCoreId& core_id,
 		YANET_LOG_ERROR("Trying to assign to many workers to garbage collector on core %d\n", core_id);
 		return std::nullopt;
 	}
+	const std::string ring_name = "r_gc" + std::to_string(socket_id) + "_to_" + name;
+
 	auto rs = dpdk::Ring<rte_mbuf*>::Make(
 	        "r_gc" + std::to_string(socket_id) + "_to_" + name,
 	        capacity,
@@ -88,8 +90,14 @@ eResult worker_gc_t::init(const tCoreId& core_id,
 	        RING_F_SP_ENQ | RING_F_SC_DEQ);
 	if (!rs)
 	{
+		YANET_LOG_ERROR("Failed to allocate ring to '%s' on socket %u: rte_errno=%d (%s)\n",
+		                name.c_str(),
+		                socket_id,
+		                rte_errno,
+		                rte_strerror(rte_errno));
 		return std::nullopt;
 	}
+	const std::string ring_name_from = "r_tfmb_gc" + std::to_string(socket_id) + "_from_" + name;
 
 	auto rf = dpdk::Ring<rte_mbuf*>::Make(
 	        "r_tfmb_gc" + std::to_string(socket_id) + "_from_" + name,
@@ -99,6 +107,11 @@ eResult worker_gc_t::init(const tCoreId& core_id,
 
 	if (!rf)
 	{
+		YANET_LOG_ERROR("Failed to allocate ring from '%s' on socket %u: rte_errno=%d (%s)\n",
+		                name.c_str(),
+		                socket_id,
+		                rte_errno,
+		                rte_strerror(rte_errno));
 		rs.value().Destroy();
 		return std::nullopt;
 	}

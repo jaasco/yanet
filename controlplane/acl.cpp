@@ -322,6 +322,7 @@ struct firewall_rules_t
 					case ipfw::rule_action_t::CHECKSTATE:
 					case ipfw::rule_action_t::STATETIMEOUT:
 					case ipfw::rule_action_t::HITCOUNT:
+					case ipfw::rule_action_t::TLS_INSPECT:
 					{
 						// handle only meaning rules
 						auto& ruleref = yanet_rules.emplace_back(rulep, configp);

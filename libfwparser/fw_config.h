@@ -145,6 +145,7 @@ enum class rule_action_t
 	ALLOW,
 	CALL,
 	CHECKSTATE,
+	TLS_INSPECT,
 	COUNT,
 	DENY,
 	DIVERT,

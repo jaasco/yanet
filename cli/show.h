@@ -890,6 +890,7 @@ static const std::map<std::string, uint32_t> counter_name_to_offset = {
         {"nat46clat_lan_handle", offsetof(tsc_base_values, nat46clat_lan_handle)},
         {"nat46clat_wan_handle", offsetof(tsc_base_values, nat46clat_wan_handle)},
         {"balancer_handle", offsetof(tsc_base_values, balancer_handle)},
+        {"tls_inspector_ingress_handle", offsetof(tsc_base_values, tls_inspector_ingress_handle)},
         {"balancer_icmp_reply_handle", offsetof(tsc_base_values, balancer_icmp_reply_handle)},
         {"balancer_icmp_forward_handle", offsetof(tsc_base_values, balancer_icmp_forward_handle)},
         {"route_tunnel_handle4", offsetof(tsc_base_values, route_tunnel_handle4)},

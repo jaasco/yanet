@@ -21,6 +21,7 @@
 #include "common/fallback.h"
 #include "common/nat46clat.h"
 
+#include "common/type.h"
 #include "dataplane/sdpserver.h"
 
 #include "action_dispatcher.h"
@@ -30,6 +31,7 @@
 #include "icmp.h"
 #include "metadata.h"
 #include "prepare.h"
+#include "tls_sni.h"
 #include "worker.h"
 
 //
@@ -252,6 +254,8 @@ void cWorker::start()
 	rte_prefetch0((void*)route_stack4.mbufs);
 	rte_prefetch0((void*)&route_stack6.mbufsCount);
 	rte_prefetch0((void*)route_stack6.mbufs);
+	rte_prefetch0((void*)&tls_inspector_ingress_stack.mbufsCount);
+	rte_prefetch0((void*)tls_inspector_ingress_stack.mbufs);
 
 	mainThread();
 }
@@ -908,6 +912,13 @@ inline void cWorker::handlePackets()
 		stack_size = balancer_icmp_forward_stack.mbufsCount;
 		balancer_icmp_forward_handle(); // forward icmp message to other balancers (if not sent to one of this balancer's reals)
 		tsc_deltas->write(tsc_start, stack_size, tsc_deltas->balancer_icmp_forward_handle, base_values.balancer_icmp_forward_handle);
+	}
+
+	if (globalbase.tls_inspector_enabled)
+	{
+		stack_size = tls_inspector_ingress_stack.mbufsCount;
+		tls_inspector_handle();
+		tsc_deltas->write(tsc_start, stack_size, tsc_deltas->tls_inspector_ingress_handle, base_values.tls_inspector_ingress_handle);
 	}
 
 	stack_size = route_stack4.mbufsCount + vrf_route_stack4.mbufsCount;
@@ -1754,6 +1765,10 @@ inline void cWorker::acl_ingress_flow(rte_mbuf* mbuf,
 		early_decap(mbuf);
 		after_early_decap_entry(mbuf);
 	}
+	else if (flow.type == common::globalBase::eFlowType::tls_inspect)
+	{
+		tls_inspector_entry(mbuf);
+	}
 	else if (flow.type == common::globalBase::eFlowType::controlPlane)
 	{
 		controlPlane(mbuf);
@@ -1910,6 +1925,120 @@ inline void cWorker::tun64_ipv6_handle()
 
 inline void cWorker::tun64_flow(rte_mbuf* mbuf,
                                 const common::globalBase::tFlow& flow)
+{
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+	metadata->flow = flow;
+
+	if (flow.type == common::globalBase::eFlowType::route)
+	{
+		route_entry(mbuf);
+	}
+	else if (flow.type == common::globalBase::eFlowType::route_tunnel || flow.type == common::globalBase::eFlowType::route_tunnel_ipip)
+	{
+		route_tunnel_entry(mbuf);
+	}
+	else if (flow.type == common::globalBase::eFlowType::controlPlane)
+	{
+		controlPlane(mbuf);
+	}
+	else
+	{
+		drop(mbuf);
+	}
+}
+
+inline void cWorker::tls_inspector_entry(rte_mbuf* mbuf)
+{
+	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+
+	if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))
+	{
+		tls_inspector_ingress_stack.insert(mbuf);
+	}
+	// else if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6))
+	// {
+	// 	tls_inspect_stack6.insert(mbuf);
+	// }
+	else
+	{
+		controlPlane(mbuf); // fallback, если тип пакета не поддерживается
+	}
+}
+
+inline void cWorker::tls_inspector_handle()
+{
+	if (unlikely(tls_inspector_ingress_stack.mbufsCount == 0))
+		return;
+
+	const auto& base = bases[localBaseId & 1];
+	const auto& tls = base.globalBase->tls_inspectors[0];
+
+	for (uint32_t mbuf_i = 0; mbuf_i < tls_inspector_ingress_stack.mbufsCount; ++mbuf_i)
+	{
+		rte_mbuf* mbuf = tls_inspector_ingress_stack.mbufs[mbuf_i];
+		preparePacket(mbuf);
+		dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
+		counters[tls.flow.counter_id]++;
+
+		if (metadata->transport_headerType != IPPROTO_TCP)
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		const rte_tcp_hdr* tcpHeader = rte_pktmbuf_mtod_offset(mbuf, rte_tcp_hdr*, metadata->transport_headerOffset);
+		metadata->transport_flags = tcpHeader->tcp_flags;
+		if (metadata->transport_flags & (0x01 /* FIN */ | 0x02 /* SYN */ | 0x04 /* RST */ | 0x20 /* URG */))
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		// Skip packets without enough payload for TLS ClientHello
+		uint16_t tcp_hdr_len = (tcpHeader->data_off >> 4) * 4;
+		uint16_t l7_offset = metadata->transport_headerOffset + tcp_hdr_len;
+		uint16_t pkt_len = rte_pktmbuf_pkt_len(mbuf);
+
+		if (pkt_len < l7_offset + 6)
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		const uint8_t* pkt_data = rte_pktmbuf_mtod(mbuf, uint8_t*);
+		const uint8_t* payload = pkt_data + l7_offset;
+		
+		bool isClientHello =
+		        payload[0] == 0x16 && // TLS Handshake Content Type
+		        payload[1] == 0x03 && // TLS Version major == 3 (TLS 1.x)
+		        payload[5] == 0x01; // Handshake Type: ClientHello
+
+		if (!isClientHello)
+		{
+			tls_inspector_flow(mbuf, tls.flow);
+			continue;
+		}
+
+		if (tls.use_slow_worker)
+		{
+			slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspect);
+			continue;
+		}
+
+		if (sni_filter_matches(tls.sni, tls.count, mbuf))
+		{
+			drop(mbuf);
+			continue;
+		}
+
+		tls_inspector_flow(mbuf, tls.flow);
+	}
+
+	tls_inspector_ingress_stack.clear();
+}
+
+inline void cWorker::tls_inspector_flow(rte_mbuf* mbuf,
+                                        const common::globalBase::tFlow& flow)
 {
 	dataplane::metadata* metadata = YADECAP_METADATA(mbuf);
 	metadata->flow = flow;
@@ -2808,7 +2937,7 @@ inline void cWorker::route_tunnel_nexthop(rte_mbuf* mbuf,
 	{
 		uint32_t vtc_flow = 0;
 		uint16_t payload_len = 0;
-		uint32_t ipv4_src_addr;
+		uint32_t ipv4_src_addr = {};
 		uint16_t mpls_len = (is_ipip_tunnel ? 0 : sizeof(rte_udp_hdr) + YADECAP_MPLS_HEADER_SIZE);
 		if (is_ipv4)
 		{

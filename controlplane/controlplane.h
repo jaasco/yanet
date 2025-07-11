@@ -23,6 +23,7 @@
 #include "nat46clat.h"
 #include "nat64stateful.h"
 #include "route.h"
+#include "tls.h"
 #include "tun64.h"
 #include "type.h"
 
@@ -153,6 +154,7 @@ protected:
 	friend class balancer_t;
 	friend class tun64_t;
 	friend class config_converter_t;
+	friend class tls_inspector_t;
 
 	volatile bool flagStop;
 
@@ -183,6 +185,7 @@ protected:
 	nat64stateful_t nat64stateful;
 	nat46clat::manager nat46clat;
 	controlplane::memory_manager::memory_manager memory_manager;
+	tls_inspector_t tls_inspector;
 
 	counter_manager_t counter_manager;
 

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <arpa/inet.h>
 #include <bitset>
 #include <cstdint>
@@ -34,6 +35,7 @@
 #include "common/idp.h"
 #include "common/result.h"
 #include "common/tsc_deltas.h"
+#include "common/utils.h"
 #include "dataplane.h"
 #include "dataplane/sdpserver.h"
 #include "globalbase.h"
@@ -211,13 +213,22 @@ eResult cDataPlane::init(const std::string& binaryPath,
 	}
 
 	/// sanity check
-	if (rte_lcore_count() != workers.size() + worker_gcs.size() + slow_workers.size())
+	std::unordered_set<tCoreId> used_lcores;
+	used_lcores.insert(config.controlPlaneCoreId);
+	for (const auto& [core, worker] : workers)
+		used_lcores.insert(core);
+
+	for (const auto& [core, gc] : worker_gcs)
+		used_lcores.insert(core);
+
+	for (const auto& [core, slow] : slow_workers)
+		used_lcores.insert(core);
+
+	if (used_lcores.size() != rte_lcore_count())
 	{
-		YADECAP_LOG_ERROR("invalid cores count: %u != %luwork + %lugc + %luslow\n",
-		                  rte_lcore_count(),
-		                  workers.size(),
-		                  worker_gcs.size(),
-		                  slow_workers.size());
+		YANET_LOG_ERROR("Invalid core config: used %zu lcores, but DPDK has %u enabled cores",
+		                used_lcores.size(),
+		                rte_lcore_count());
 		return eResult::invalidCoresCount;
 	}
 
@@ -523,6 +534,7 @@ eResult cDataPlane::initPorts()
 
 			YADECAP_LOG_INFO("device info: flow type rss offloads 0x%lx\n", devInfo.flow_type_rss_offloads);
 			YADECAP_LOG_INFO("port.rss_flags: 0x%lx\n", rss_flags);
+
 			if ((devInfo.flow_type_rss_offloads | rss_flags) == devInfo.flow_type_rss_offloads)
 			{
 				portConf.rx_adv_conf.rss_conf.rss_hf = rss_flags;
@@ -1212,7 +1224,7 @@ eResult cDataPlane::InitSlowWorker(tCoreId core, const std::set<tCoreId>& worker
 		{
 			ss << p << ' ';
 		}
-		YANET_LOG_INFO("controlplane worker on core %d, serving [%s]\n", core, ss.str().c_str());
+		YANET_LOG_INFO("controlplane worker on core %d, serving ports [%s]\n", core, ss.str().c_str());
 	}
 
 	std::vector<cWorker*> workers_to_service;
@@ -1241,20 +1253,17 @@ eResult cDataPlane::InitSlowWorker(tCoreId core, const std::set<tCoreId>& worker
 	}
 
 	std::vector<dpdk::RingConn<rte_mbuf*>> rings_from_gcs;
-	for (auto& gccore : gcs_to_service)
+
+	const auto gc_core = gcs_to_service.at(core % gcs_to_service.size());
+	auto r = worker_gcs.at(gc_core)->RegisterSlowWorker("cw" + std::to_string(core) + "_" + std::to_string(gc_core),
+	                                                    config_values_.ring_normalPriority_size,
+	                                                    config_values_.ring_toFreePackets_size);
+	if (!r)
 	{
-		auto r = worker_gcs.at(gccore)->RegisterSlowWorker("cw" + std::to_string(core),
-		                                                   config_values_.ring_normalPriority_size,
-		                                                   config_values_.ring_toFreePackets_size);
-		if (r)
-		{
-			rings_from_gcs.push_back(r.value());
-		}
-		else
-		{
-			abort();
-		}
+		std::abort();
 	}
+
+	rings_from_gcs.push_back(r.value());
 
 	auto slow = new dataplane::SlowWorker(worker,
 	                                      std::move(ports_to_service),
@@ -1452,14 +1461,23 @@ void cDataPlane::SWRateLimiterTimeTracker()
 int cDataPlane::LcoreFunc(void* args)
 {
 	const auto& workloads = *reinterpret_cast<std::map<tCoreId, std::function<void()>>*>(args);
-	if (auto it = workloads.find(rte_lcore_id()); it != workloads.end())
+	const tCoreId core_id = rte_lcore_id();
+
+	if (auto it = workloads.find(core_id); it != workloads.end())
 	{
 		it->second();
 		return 0;
 	}
 	else
 	{
-		YADECAP_LOG_ERROR("invalid core id: '%u'\n", rte_lcore_id());
+		YADECAP_LOG_ERROR("invalid core id: %u — not found in workloads (total entries: %zu)\n",
+		                  core_id,
+		                  workloads.size());
+
+		for (const auto& [registered_core, _] : workloads)
+		{
+			YADECAP_LOG_ERROR("  registered core: %u\n", registered_core);
+		}
 		return -1;
 	}
 }
@@ -2343,68 +2361,55 @@ eResult cDataPlane::checkConfig()
 eResult cDataPlane::initEal(const std::string& binaryPath,
                             const std::string& filePrefix)
 {
-#define insert_eal_arg(args...)                                                                               \
-	do                                                                                                    \
-	{                                                                                                     \
-		eal_argv[eal_argc++] = &buffer[bufferPosition];                                               \
-		bufferPosition += snprintf(&buffer[bufferPosition], sizeof(buffer) - bufferPosition, ##args); \
-		bufferPosition++;                                                                             \
-	} while (0)
+	std::vector<std::string> args;
 
-	unsigned int bufferPosition = 0;
-	char buffer[8192];
+	args.push_back(binaryPath);
 
-	unsigned int eal_argc = 0;
-	char* eal_argv[128];
+	// Add all generic EAL arguments from the configuration
+	args.insert(args.end(), config.ealArgs.begin(), config.ealArgs.end());
 
-	insert_eal_arg("%s", binaryPath.data());
+	// Construct the core mask argument for up to 128 cores
+	// We use a 128-bit bitset and a helper to convert it to a hex string.
+	constexpr size_t MAX_CORES = 128;
+	std::bitset<MAX_CORES> cores_mask;
 
-	for (auto& arg : config.ealArgs)
-	{
-		insert_eal_arg("%s", arg.c_str());
-	}
-
-	insert_eal_arg("-c");
-
-	std::bitset<std::numeric_limits<uint_least64_t>::digits> cores_mask;
 	cores_mask[config.controlPlaneCoreId] = true;
-	for (const auto& iter : config.controlplane_workers)
+	for (const auto& [coreId, workerConfig] : config.controlplane_workers)
 	{
-		const tCoreId& coreId = iter.first;
 		cores_mask[coreId] = true;
 	}
 	for (const auto& coreId : config.workerGCs)
 	{
 		cores_mask[coreId] = true;
 	}
-	for (const auto& iter : config.workers)
+	for (const auto& [coreId, workerConfig] : config.workers)
 	{
-		const tCoreId& coreId = iter.first;
 		cores_mask[coreId] = true;
 	}
-	insert_eal_arg("0x%" PRIx64, static_cast<uint_least64_t>(cores_mask.to_ullong()));
+
+	args.emplace_back("-c");
+	// This is necessary because std::bitset::to_string() produces a binary string,
+	// and to_ullong() is limited to 64 bits. DPDK's -c coremask expects hex.
+	args.push_back(utils::bitset_to_hex_string(cores_mask));
 
 #if RTE_VERSION >= RTE_VERSION_NUM(20, 11, 0, 0)
-	insert_eal_arg("--main-lcore");
-	insert_eal_arg("%u", config.controlPlaneCoreId);
+	args.emplace_back("--main-lcore");
 #else
-	insert_eal_arg("--master-lcore");
-	insert_eal_arg("%u", config.controlPlaneCoreId);
+	args.emplace_back("--master-lcore");
 #endif
+	args.push_back(std::to_string(config.controlPlaneCoreId));
 
 	if (!config.useHugeMem)
 	{
-		insert_eal_arg("--no-huge");
+		args.emplace_back("--no-huge");
 	}
 
-	insert_eal_arg("--proc-type=primary");
+	args.emplace_back("--proc-type=primary");
 
-	for (const auto& port : config.ports)
+	// Device whitelist
+	for (const auto& [portId, portConfig] : config.ports)
 	{
-		const auto& [pci, name, symmetric_mode, rss_flags] = port.second;
-		GCC_BUG_UNUSED(name);
-		GCC_BUG_UNUSED(symmetric_mode);
-		GCC_BUG_UNUSED(rss_flags);
+		const auto& [pci, name, symmetric_mode, rss_flags] = portConfig;
 
 		// Do not whitelist sock dev virtual devices
 		if (StartsWith(name, SOCK_DEV_PREFIX))
@@ -2413,41 +2418,53 @@ eResult cDataPlane::initEal(const std::string& binaryPath,
 		}
 
 #if RTE_VERSION >= RTE_VERSION_NUM(20, 11, 0, 0)
-		insert_eal_arg("-a");
-		insert_eal_arg("%s", pci.data());
+		args.emplace_back("-a");
 #else
-		insert_eal_arg("--pci-whitelist=%s", pci.data());
+		args.emplace_back("--pci-whitelist");
 #endif
+		args.push_back(pci);
 	}
 
+	// Memory allocation configuration
 	if (!config.memory.empty())
 	{
 		if (config.useHugeMem)
 		{
-			insert_eal_arg("--socket-mem=%s", config.memory.data());
-			insert_eal_arg("--socket-limit=%s", config.memory.data());
+			args.emplace_back("--socket-mem");
+			args.push_back(config.memory);
+			args.emplace_back("--socket-limit");
+			args.push_back(config.memory);
 		}
 		else
 		{
-			insert_eal_arg("-m %s", config.memory.data());
+			args.emplace_back("-m");
+			args.push_back(config.memory);
 		}
 	}
 
-	if (filePrefix.size())
+	if (!filePrefix.empty())
 	{
-		insert_eal_arg("--file-prefix=%s", filePrefix.data());
+		args.emplace_back("--file-prefix");
+		args.push_back(filePrefix);
 	}
 
-	eal_argv[eal_argc] = nullptr;
+	// Prepare for rte_eal_init
+	// Convert the vector of std::string to the required C-style char* array.
+	// The strings in `args` will outlive the pointers in `eal_argv`, ensuring validity.
+	std::vector<char*> eal_argv;
+	eal_argv.reserve(args.size() + 1); // +1 for the terminating nullptr
+	for (auto& arg : args)
+	{
+		eal_argv.push_back(arg.data());
+	}
+	eal_argv.push_back(nullptr);
 
-	int ret = rte_eal_init(eal_argc, eal_argv);
+	int ret = rte_eal_init(eal_argv.size() - 1, eal_argv.data());
 	if (ret < 0)
 	{
-		YADECAP_LOG_ERROR("rte_eal_init() = %d\n", ret);
+		YADECAP_LOG_ERROR("rte_eal_init() failed with error %d: %s\n", ret, rte_strerror(rte_errno));
 		return eResult::errorInitEal;
 	}
 
 	return eResult::success;
-
-#undef insert_eal_arg
 }

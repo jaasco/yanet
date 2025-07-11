@@ -5,6 +5,7 @@
 #include "dataplane.h"
 #include "icmp_translations.h"
 #include "prepare.h"
+#include "tls_sni.h"
 
 namespace dataplane
 {
@@ -190,6 +191,10 @@ unsigned SlowWorker::ring_handle(rte_ring* ring_to_free_mbuf,
 		else if (metadata->flow.type == common::globalBase::eFlowType::slowWorker_balancer_icmp_forward)
 		{
 			handlePacket_balancer_icmp_forward(mbuf);
+		}
+		else if (metadata->flow.type == common::globalBase::eFlowType::slowWorker_tls_inspect)
+		{
+			handlerPacket_tls_inspect(mbuf);
 		}
 		else
 		{
@@ -980,6 +985,21 @@ void SlowWorker::DequeueGC()
 			SendToSlowWorker(mbuf, metadata->flow);
 		}
 	}
+}
+
+void SlowWorker::handlerPacket_tls_inspect(rte_mbuf* mbuf)
+{
+	const auto& base = slow_worker_->current_base();
+	const auto& tls = base.globalBase->tls_inspectors[0];
+
+	if (sni_filter_matches(tls.sni, tls.count, mbuf))
+	{
+		stats_.slowworker_drops++;
+		rte_pktmbuf_free(mbuf);
+		return;
+	}
+
+	SendToSlowWorker(mbuf, tls.flow);
 }
 
 } // namespace dataplane

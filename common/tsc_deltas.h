@@ -47,6 +47,7 @@ struct alignas(2 * RTE_CACHE_LINE_SIZE) tsc_base_values
 	uint32_t acl_egress_handle6 = 0;
 	uint32_t logicalPort_egress_handle = 0;
 	uint32_t controlPlane_handle = 0;
+	uint32_t tls_inspector_ingress_handle = 0;
 };
 
 struct alignas(2 * RTE_CACHE_LINE_SIZE) tsc_deltas
@@ -69,6 +70,7 @@ struct alignas(2 * RTE_CACHE_LINE_SIZE) tsc_deltas
 	CountersArray nat46clat_lan_handle{};
 	CountersArray nat46clat_wan_handle{};
 	CountersArray balancer_handle{};
+	CountersArray tls_inspector_ingress_handle{};
 
 	CountersArray balancer_icmp_reply_handle{};
 	CountersArray balancer_icmp_forward_handle{};
@@ -121,6 +123,7 @@ struct alignas(2 * RTE_CACHE_LINE_SIZE) tsc_deltas
 		                nat46clat_lan_handle,
 		                nat46clat_wan_handle,
 		                balancer_handle,
+		                tls_inspector_ingress_handle,
 		                balancer_icmp_reply_handle,
 		                balancer_icmp_forward_handle,
 		                route_tunnel_handle4,

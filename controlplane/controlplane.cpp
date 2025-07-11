@@ -58,6 +58,7 @@ eResult cControlPlane::init(const std::string& jsonFilePath)
 	modules.emplace_back(&nat64stateful);
 	modules.emplace_back(&nat46clat);
 	modules.emplace_back(&memory_manager);
+	modules.emplace_back(&tls_inspector);
 
 	for (auto* module : modules)
 	{

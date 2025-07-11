@@ -82,7 +82,7 @@ using wan_ht = hashtable_mod_spinlock_dynamic<nat64stateful_wan_key, nat64statef
 
 namespace balancer
 {
-using state_ht = hashtable_mod_spinlock_dynamic<balancer_state_key_t, balancer_state_value_t, 16>;
+using state_ht = hashtable_mod_spinlock_dynamic<balancer_state_key_t, balancer_state_value_t, 16, dataplane::calculate_hash_city<balancer_state_key_t>>;
 }
 
 class atomic
@@ -192,6 +192,7 @@ protected:
 	eResult tsc_state_update(const common::idp::updateGlobalBase::tsc_state_update::request& request);
 	eResult tscs_base_value_update(const common::idp::updateGlobalBase::tscs_base_value_update::request& request);
 	eResult update_host_config(const common::idp::updateGlobalBase::update_host_config::request& request);
+	eResult tls_inspectors_update(const common::idp::updateGlobalBase::tls_inspector_update::request& request);
 
 	void evaluate_service_ring();
 	inline uint64_t count_real_connections(uint32_t counter_id);
@@ -243,6 +244,7 @@ public: ///< @todo
 	dregress_t dregresses[CONFIG_YADECAP_DREGRESS_SIZE]; ///< @todo: slow global base
 	fw_state_sync_config_t fw_state_sync_configs[CONFIG_YADECAP_ACLS_SIZE];
 	tun64_t tun64tunnels[CONFIG_YADECAP_TUN64_SIZE];
+	tls_inspect_t tls_inspectors[YANET_CONFIG_TLS_INSPECTORS_SIZE];
 	host_config_t host_config{};
 
 	uint8_t decap_enabled;
@@ -253,6 +255,7 @@ public: ///< @todo
 	uint8_t acl_egress_enabled;
 	uint8_t sampler_enabled;
 	uint8_t tun64_enabled;
+	uint8_t tls_inspector_enabled;
 	uint8_t early_decap_enabled;
 
 	uint32_t serial;

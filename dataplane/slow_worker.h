@@ -86,6 +86,7 @@ public:
 	void handlePacket_fw_state_sync(rte_mbuf* mbuf);
 	bool handlePacket_fw_state_sync_ingress(rte_mbuf* mbuf);
 	void handlePacket_balancer_icmp_forward(rte_mbuf* mbuf);
+	void handlerPacket_tls_inspect(rte_mbuf* mbuf);
 	void handlePacketFromForwardingPlane(rte_mbuf* mbuf);
 	void HandleWorkerRings();
 

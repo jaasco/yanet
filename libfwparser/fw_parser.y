@@ -59,9 +59,6 @@
   #include "libfwparser/fw_lexer.h"
   #include "libfwparser/fw_parser.h"
 
-  // replace yylex() function call
-  #define yylex cfg.Lex
-
   #ifdef YYDEBUG
   #define WARN_UNSUPPORTED(msg)	do {	\
 	if (debug_level() > 0)		\
@@ -70,6 +67,11 @@
   #else
   #define WARN_UNSUPPORTED(msg)
   #endif
+}
+
+%code {
+  // replace yylex() function call
+  #define yylex cfg.Lex
 }
 
 %start commands
@@ -131,7 +133,7 @@
 		SRCPRJID DSTPRJID RED ALL LMAX DSTIP6 SRCIP6 TCPSETMSS
 		NAT64CLAT NAT64LSN NAT64STL NPTV6 SRCADDR QM DSTADDR
 		SRCPORT DSTPORT SRCIP DSTIP EQUAL COMMA MINUS EOL M4LQ M4RQ DUMP
-		STATETIMEOUT HITCOUNT
+		STATETIMEOUT HITCOUNT TLS_INSPECT
 
 // QUEUE could be an argument to *MASK
 %precedence	QUEUE
@@ -499,6 +501,11 @@ action:
 	DENY
 	{
 		cfg.set_rule_action(rule_action_t::DENY);
+	}
+	|
+	TLS_INSPECT
+	{
+		cfg.set_rule_action(rule_action_t::TLS_INSPECT);
 	}
 	|
 	DUMP dump_tag

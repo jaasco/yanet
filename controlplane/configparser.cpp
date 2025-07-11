@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "common/define.h"
 #include "errors.h"
 
 #include "common/idataplane.h"
@@ -81,6 +82,10 @@ controlplane::base_t config_parser_t::loadConfig(const std::string& rootFilePath
 				else if (type == "tun64")
 				{
 					loadConfig_tun64(baseNext, id, moduleJson, rootFilePath, jsons);
+				}
+				else if (type == "tls_inspect")
+				{
+					loadConfig_tls_inspect(baseNext, id, moduleJson, rootFilePath, jsons);
 				}
 				else if (type == "nat64stateful")
 				{
@@ -699,6 +704,24 @@ void config_parser_t::loadConfig_tun64(controlplane::base_t& baseNext,
 
 	tunnel.nextModule = moduleJson.value("nextModule", "");
 	tunnel.tun64Id = tunnelId;
+}
+
+void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
+                                             const std::string& moduleId,
+                                             const nlohmann::json& moduleJson,
+                                             const std::string&,
+                                             const std::map<std::string, nlohmann::json>&)
+{
+	auto& tls = baseNext.tls_inspectors[moduleId];
+	if (exist(moduleJson, "blacklist"))
+	{
+		for (const auto& blacklistItemJson : moduleJson["blacklist"])
+		{
+			tls.blacklist_sni.emplace_back(blacklistItemJson);
+		}
+	}
+	tls.next_module = moduleJson.value("nextModule", "");
+	tls.use_slow_worker = moduleJson.value("useSlowWorker", false);
 }
 
 void config_parser_t::loadConfig_tun64mappings(controlplane::base_t& baseNext,

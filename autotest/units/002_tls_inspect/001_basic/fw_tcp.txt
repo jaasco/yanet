@@ -1,0 +1,6 @@
+:BEGIN
+add skipto :TLS tcp from any to any
+add allow ip from any to any
+
+:TLS
+add tls-inspect

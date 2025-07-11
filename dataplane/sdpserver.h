@@ -60,10 +60,11 @@ public:
 			void* buffer = common::ipc::SharedMemory::CreateBufferKey(key_shared_memory_segment, size, use_huge_tlb, socket_id);
 			if (buffer == nullptr)
 			{
-				YANET_LOG_ERROR("Error create buffer in shared memory for workers on numa=%d, key=%d, size=%ld",
+				YANET_LOG_ERROR("Error create buffer in shared memory for workers on numa=%d, key=%d, size=%ld, huge=%s\n",
 				                socket_id,
 				                key_shared_memory_segment,
-				                size);
+				                size,
+				                use_huge_tlb ? "yes" : "no" );
 				return eResult::errorInitSharedMemory;
 			}
 #endif

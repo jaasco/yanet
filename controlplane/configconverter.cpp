@@ -6,6 +6,9 @@
 #include <netinet/ip_icmp.h>
 
 #include "acl.h"
+#include "common/config.release.h"
+#include "common/define.h"
+#include "common/type.h"
 #include "configconverter.h"
 #include "errors.h"
 
@@ -32,6 +35,7 @@ eResult config_converter_t::process(uint32_t serial)
 		processDregress();
 		processAcl();
 		processHostConfig();
+		processTlsInpector();
 
 		buildAcl();
 	}
@@ -508,6 +512,28 @@ void config_converter_t::processNat64stateful()
 	/// continue in nat64stateful_t::compile()
 }
 
+void config_converter_t::processTlsInpector()
+{
+	for (auto& [name, tlsInspector] : baseNext.tls_inspectors)
+	{
+		GCC_BUG_UNUSED(name);
+		if (tlsInspector.tlsId >= YANET_CONFIG_TLS_INSPECTORS_SIZE)
+		{
+			throw error_result_t(eResult::invalidId, "invalid tlsInspector_id: " + std::to_string(tlsInspector.tlsId));
+		}
+
+		convertToFlow(tlsInspector.next_module, tlsInspector.flow);
+		if (tlsInspector.flow.type != common::globalBase::eFlowType::route &&
+		    tlsInspector.flow.type != common::globalBase::eFlowType::route_tunnel &&
+		    tlsInspector.flow.type != common::globalBase::eFlowType::route_tunnel_ipip &&
+		    tlsInspector.flow.type != common::globalBase::eFlowType::controlPlane &&
+		    tlsInspector.flow.type != common::globalBase::eFlowType::drop)
+		{
+			throw error_result_t(eResult::invalidFlow, "invalid flow type for tlsInspector: " + std::string(eFlowType_toString(tlsInspector.flow.type)));
+		}
+	}
+}
+
 void config_converter_t::processTun64()
 {
 	for (auto& [moduleName, tunnel] : baseNext.tunnels)
@@ -729,6 +755,18 @@ void config_converter_t::processDregress()
 	}
 }
 
+namespace
+{
+std::string ParseEntry(const std::string& nmodule)
+{
+	if (auto pos = nmodule.find(':'); pos != std::string::npos)
+	{
+		return nmodule.substr(pos + 1);
+	}
+	return "";
+}
+} // namespace
+
 void config_converter_t::processAcl()
 {
 	for (auto& [moduleName, acl] : baseNext.acls)
@@ -759,7 +797,7 @@ void config_converter_t::processAcl()
 		for (const auto& nextModule : acl.nextModules)
 		{
 			const std::string nextModuleName = nextModule.substr(0, nextModule.find(':'));
-			const std::string entry = nextModule.substr(nextModule.find(':') + 1);
+			const std::string entry = ParseEntry(nextModule);
 
 			auto it = baseNext.moduleTypes.find(nextModuleName);
 			if (it == baseNext.moduleTypes.end())

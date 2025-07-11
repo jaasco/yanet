@@ -192,9 +192,9 @@ unsigned SlowWorker::ring_handle(rte_ring* ring_to_free_mbuf,
 		{
 			handlePacket_balancer_icmp_forward(mbuf);
 		}
-		else if (metadata->flow.type == common::globalBase::eFlowType::slowWorker_tls_inspect)
+		else if (metadata->flow.type == common::globalBase::eFlowType::slowWorker_tls_inspector)
 		{
-			handlerPacket_tls_inspect(mbuf);
+			handlerPacket_tls_inspector(mbuf);
 		}
 		else
 		{
@@ -987,7 +987,7 @@ void SlowWorker::DequeueGC()
 	}
 }
 
-void SlowWorker::handlerPacket_tls_inspect(rte_mbuf* mbuf)
+void SlowWorker::handlerPacket_tls_inspector(rte_mbuf* mbuf)
 {
 	const auto& base = slow_worker_->current_base();
 	const auto& tls = base.globalBase->tls_inspectors[0];

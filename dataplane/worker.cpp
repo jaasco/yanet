@@ -1765,7 +1765,7 @@ inline void cWorker::acl_ingress_flow(rte_mbuf* mbuf,
 		early_decap(mbuf);
 		after_early_decap_entry(mbuf);
 	}
-	else if (flow.type == common::globalBase::eFlowType::tls_inspect)
+	else if (flow.type == common::globalBase::eFlowType::tls_inspector)
 	{
 		tls_inspector_entry(mbuf);
 	}
@@ -1957,7 +1957,7 @@ inline void cWorker::tls_inspector_entry(rte_mbuf* mbuf)
 	}
 	// else if (metadata->network_headerType == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6))
 	// {
-	// 	tls_inspect_stack6.insert(mbuf);
+	// 	tls_inspector_stack6.insert(mbuf);
 	// }
 	else
 	{
@@ -2021,7 +2021,7 @@ inline void cWorker::tls_inspector_handle()
 
 		if (tls.use_slow_worker)
 		{
-			slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspect);
+			slowWorker_entry_highPriority(mbuf, common::globalBase::eFlowType::slowWorker_tls_inspector);
 			continue;
 		}
 

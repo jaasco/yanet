@@ -244,7 +244,7 @@ public: ///< @todo
 	dregress_t dregresses[CONFIG_YADECAP_DREGRESS_SIZE]; ///< @todo: slow global base
 	fw_state_sync_config_t fw_state_sync_configs[CONFIG_YADECAP_ACLS_SIZE];
 	tun64_t tun64tunnels[CONFIG_YADECAP_TUN64_SIZE];
-	tls_inspect_t tls_inspectors[YANET_CONFIG_TLS_INSPECTORS_SIZE];
+	tls_inspector_t tls_inspectors[YANET_CONFIG_TLS_INSPECTORS_SIZE];
 	host_config_t host_config{};
 
 	uint8_t decap_enabled;

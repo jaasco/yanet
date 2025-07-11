@@ -2042,8 +2042,8 @@ enum class eFlowType : uint8_t
 	balancer_fragment,
 	nat46clat_lan,
 	nat46clat_wan,
-	tls_inspect,
-	slowWorker_tls_inspect,
+	tls_inspector,
+	slowWorker_tls_inspector,
 };
 
 inline const char* eFlowType_toString(eFlowType t)
@@ -2132,10 +2132,10 @@ inline const char* eFlowType_toString(eFlowType t)
 			return "nat46clat_lan";
 		case eFlowType::nat46clat_wan:
 			return "nat46clat_wan";
-		case eFlowType::tls_inspect:
+		case eFlowType::tls_inspector:
 			return "convertFlow";
-		case eFlowType::slowWorker_tls_inspect:
-			return "slowWorker_tls_inspect";
+		case eFlowType::slowWorker_tls_inspector:
+			return "slowWorker_tls_inspector";
 	}
 
 	return "unknown";

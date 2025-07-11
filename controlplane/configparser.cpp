@@ -3,6 +3,7 @@
 
 #include "common/define.h"
 #include "errors.h"
+#include "common/config.release.h"
 
 #include "common/idataplane.h"
 #include "configparser.h"
@@ -83,9 +84,9 @@ controlplane::base_t config_parser_t::loadConfig(const std::string& rootFilePath
 				{
 					loadConfig_tun64(baseNext, id, moduleJson, rootFilePath, jsons);
 				}
-				else if (type == "tls_inspect")
+				else if (type == "tls_inspector")
 				{
-					loadConfig_tls_inspect(baseNext, id, moduleJson, rootFilePath, jsons);
+					loadConfig_tls_inspector(baseNext, id, moduleJson, rootFilePath, jsons);
 				}
 				else if (type == "nat64stateful")
 				{
@@ -706,20 +707,26 @@ void config_parser_t::loadConfig_tun64(controlplane::base_t& baseNext,
 	tunnel.tun64Id = tunnelId;
 }
 
-void config_parser_t::loadConfig_tls_inspect(controlplane::base_t& baseNext,
+void config_parser_t::loadConfig_tls_inspector(controlplane::base_t& baseNext,
                                              const std::string& moduleId,
                                              const nlohmann::json& moduleJson,
                                              const std::string&,
                                              const std::map<std::string, nlohmann::json>&)
 {
-	auto& tls = baseNext.tls_inspectors[moduleId];
-	if (exist(moduleJson, "blacklist"))
-	{
-		for (const auto& blacklistItemJson : moduleJson["blacklist"])
-		{
-			tls.blacklist_sni.emplace_back(blacklistItemJson);
-		}
-	}
+        auto& tls = baseNext.tls_inspectors[moduleId];
+        if (exist(moduleJson, "blacklist"))
+        {
+                for (const auto& blacklistItemJson : moduleJson["blacklist"])
+                {
+                        std::string sni = blacklistItemJson;
+                        if (sni.size() >= YANET_CONFIG_TLS_INSPECTORS_SNI_LENGTH)
+                        {
+                                throw error_result_t(eResult::invalidConfigurationFile,
+                                                     "SNI too long: " + sni);
+                        }
+                        tls.blacklist_sni.emplace_back(std::move(sni));
+                }
+        }
 	tls.next_module = moduleJson.value("nextModule", "");
 	tls.use_slow_worker = moduleJson.value("useSlowWorker", false);
 }

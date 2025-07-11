@@ -8,7 +8,7 @@
 #include "counter.h"
 #include "module.h"
 
-namespace tls_inspect
+namespace tls_inspector
 {
 
 class generation_config_t
@@ -21,10 +21,10 @@ public:
 	}
 
 public:
-	std::map<std::string, controlplane::tls_inspect::config_t> config_tls_inspectors;
+	std::map<std::string, controlplane::tls_inspector::config_t> config_tls_inspectors;
 };
 
-} // tls_inspect
+} // tls_inspector
 
 class tls_inspector_t : public module_t
 {
@@ -39,7 +39,7 @@ public:
 	            common::idp::updateGlobalBase::request& globalbase) override;
 	void reload_after() override;
 	void compile(common::idp::updateGlobalBase::request& globalbase,
-	             tls_inspect::generation_config_t& generation_config);
+	             tls_inspector::generation_config_t& generation_config);
 
 protected:
 	void counters_gc_thread();
@@ -49,5 +49,5 @@ protected:
 	counter_t<std::string, 6> tls_counters;
 
 private:
-	generation_manager<tls_inspect::generation_config_t> generations_config;
+	generation_manager<tls_inspector::generation_config_t> generations_config;
 };

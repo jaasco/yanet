@@ -282,7 +282,7 @@ public:
 
 }
 
-namespace tls_inspect
+namespace tls_inspector
 {
 
 class config_t

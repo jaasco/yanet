@@ -35,7 +35,7 @@ eResult config_converter_t::process(uint32_t serial)
 		processDregress();
 		processAcl();
 		processHostConfig();
-		processTlsInpector();
+		processTlsInspector();
 
 		buildAcl();
 	}
@@ -512,7 +512,7 @@ void config_converter_t::processNat64stateful()
 	/// continue in nat64stateful_t::compile()
 }
 
-void config_converter_t::processTlsInpector()
+void config_converter_t::processTlsInspector()
 {
 	for (auto& [name, tlsInspector] : baseNext.tls_inspectors)
 	{

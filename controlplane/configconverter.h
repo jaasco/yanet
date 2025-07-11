@@ -36,7 +36,7 @@ protected:
 	void processRoutes();
 	void processDecap();
 	void processNat64stateful();
-	void processTlsInpector();
+	void processTlsInspector();
 	void processNat64();
 	void processNat46clat();
 	void processTun64();

@@ -44,7 +44,7 @@ void tls_inspector_t::reload_after()
 }
 
 void tls_inspector_t::compile(common::idp::updateGlobalBase::request& globalbase,
-                              tls_inspect::generation_config_t& generation_config)
+                              tls_inspector::generation_config_t& generation_config)
 {
 	tls_inspector_id_t tlsId = 0;
 

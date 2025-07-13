@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <numa.h>
 #include <sys/mman.h>
+#include <sys/shm.h>
 
 #include "define.h"
 #include "idp.h"
@@ -190,10 +191,17 @@ struct DataPlaneInSharedMemory
 	{
 		if (dataplane_data != nullptr)
 		{
+#ifdef YANET_USE_POSIX_SHARED_MEMORY
 			if (munmap(dataplane_data, size) < 0)
 			{
 				YANET_LOG_ERROR("Error munmap %d: %s", errno, strerror(errno));
 			}
+#else
+			if (shmdt(dataplane_data) < 0)
+			{
+				YANET_LOG_ERROR("Error shmdt %d: %s", errno, strerror(errno));
+			}
+#endif
 			dataplane_data = nullptr;
 		}
 	}
